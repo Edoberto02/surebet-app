@@ -52,33 +52,25 @@ function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 }
-
 function isZero(n: number) {
   return Math.abs(n) < 1e-9;
 }
-
 function balanceClass(n: number) {
   if (isZero(n)) return "text-zinc-500";
   if (n > 0) return "text-emerald-300";
   return "text-red-300";
 }
-
 function pendingClass(n: number) {
   if (isZero(n)) return "text-zinc-500";
   return "text-amber-300";
 }
-
 function slugifyBookmaker(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9]/g, "");
 }
-
-// ✅ baseline detector
 function isBaselineAdjustment(note: string | null) {
   const n = (note ?? "").trim().toLowerCase();
   return n === "set saldo a valore";
 }
-
-// YYYY-MM-DD in local timezone
 function dateKeyLocal(iso: string) {
   return new Date(iso).toLocaleDateString("sv-SE");
 }
@@ -118,7 +110,6 @@ function SearchSelect({
   return (
     <div className="relative">
       <div className="text-sm text-zinc-300">{label}</div>
-
       <input
         value={open ? q : selectedLabel}
         onChange={(e) => {
@@ -133,7 +124,6 @@ function SearchSelect({
         placeholder={placeholder ?? "Scrivi per cercare..."}
         className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none"
       />
-
       {open && (
         <div className="absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-zinc-700 bg-zinc-950 shadow">
           {filtered.length === 0 ? (
@@ -161,12 +151,7 @@ function SearchSelect({
   );
 }
 
-// Group helper: month -> day -> items
-function groupMonthDay<T>(
-  items: T[],
-  getISODateTime: (x: T) => string,
-  getSignedAmount: (x: T) => number
-) {
+function groupMonthDay<T>(items: T[], getISODateTime: (x: T) => string, getSignedAmount: (x: T) => number) {
   const monthMap = new Map<string, { monthTotal: number; days: Map<string, { dayTotal: number; items: T[] }> }>();
 
   for (const it of items) {
@@ -209,21 +194,20 @@ export default function Page() {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodRow[]>([]);
   const [txs, setTxs] = useState<TxRow[]>([]);
-
-  // ✅ split rettifiche
   const [adjustments, setAdjustments] = useState<AdjustmentRow[]>([]);
   const [baselineAdjustments, setBaselineAdjustments] = useState<AdjustmentRow[]>([]);
 
-  // Persona selezionata (non si resetta)
+  // modal add bookmaker
+  const [openAddBookmaker, setOpenAddBookmaker] = useState(false);
+  const [newBookmakerName, setNewBookmakerName] = useState("");
+
   const [person, _setPerson] = useState("");
   const personRef = useRef<string>("");
-
   function setPersonSafe(v: string) {
     personRef.current = v;
     _setPerson(v);
   }
 
-  // Form transazioni
   const [txKind, setTxKind] = useState<TxKind>("deposit");
   const [txStatus, setTxStatus] = useState<TxStatus>("completed");
   const [txAmount, setTxAmount] = useState("");
@@ -234,7 +218,6 @@ export default function Page() {
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountId, setToAccountId] = useState("");
 
-  // Form rettifiche
   const [adjTargetType, setAdjTargetType] = useState<"account" | "payment_method">("account");
   const [adjTargetId, setAdjTargetId] = useState("");
   const [adjAmount, setAdjAmount] = useState("");
@@ -286,7 +269,6 @@ export default function Page() {
     setAdjustments(adjList.filter((x) => !isBaselineAdjustment(x.note)));
     setBaselineAdjustments(adjList.filter((x) => isBaselineAdjustment(x.note)));
 
-    // mantieni persona selezionata
     const cur = personRef.current;
     const exists = cur && pList.some((x) => x.name === cur);
     if (!exists) {
@@ -298,21 +280,18 @@ export default function Page() {
     setLoading(false);
   }
 
-  // Auto-refresh 2s
   useEffect(() => {
     loadAll(true);
     const interval = setInterval(() => loadAll(false), 2000);
     return () => clearInterval(interval);
   }, []);
 
-  // Map saldi bookmaker
   const accountMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const row of accounts) m.set(`${row.person_name}||${row.bookmaker_name}`, Number(row.balance ?? 0));
     return m;
   }, [accounts]);
 
-  // Totali metodi per persona
   const methodsTotalsByPerson = useMemo(() => {
     const m = new Map<string, { saldo: number; transito: number }>();
     for (const p of people) m.set(p.name, { saldo: 0, transito: 0 });
@@ -325,7 +304,6 @@ export default function Page() {
     return m;
   }, [paymentMethods, people]);
 
-  // Dettaglio metodi per persona
   const methodsByPerson = useMemo(() => {
     const m = new Map<string, PaymentMethodRow[]>();
     for (const pm of paymentMethods) {
@@ -337,7 +315,6 @@ export default function Page() {
     return m;
   }, [paymentMethods]);
 
-  // Opzioni transazioni per persona
   const accountOptionsForPerson: Option[] = useMemo(() => {
     if (!person) return [];
     return accounts
@@ -354,7 +331,6 @@ export default function Page() {
       .sort((x, y) => x.label.localeCompare(y.label));
   }, [paymentMethods, person]);
 
-  // Rettifiche: opzioni globali
   const allAccountOptions: Option[] = useMemo(() => {
     return accounts
       .map((a) => ({ id: a.id, label: `${a.bookmaker_name} — ${a.person_name}` }))
@@ -379,7 +355,6 @@ export default function Page() {
     return m;
   }, [paymentMethods]);
 
-  // reset selezioni transazioni quando cambia persona o tipo
   useEffect(() => {
     setFromMethodId("");
     setToMethodId("");
@@ -387,14 +362,12 @@ export default function Page() {
     setToAccountId("");
   }, [person, txKind]);
 
-  // reset target rettifica se cambia tipo
   useEffect(() => {
     setAdjTargetId("");
   }, [adjTargetType]);
 
   async function insertTransaction() {
     setErrorMsg("");
-
     const amt = Number(txAmount.replace(",", "."));
     if (!Number.isFinite(amt) || amt <= 0) return setErrorMsg("Importo non valido");
 
@@ -415,14 +388,12 @@ export default function Page() {
       payload.to_account_id = toAccountId;
       payload.status = "completed";
     }
-
     if (txKind === "withdraw") {
       if (!fromAccountId || !toMethodId) return setErrorMsg("Prelievo: scegli DA (account) e A (metodo)");
       payload.from_account_id = fromAccountId;
       payload.to_payment_method_id = toMethodId;
       if (!payload.status) payload.status = "pending";
     }
-
     if (txKind === "transfer") {
       if (!fromMethodId || !toMethodId) return setErrorMsg("Trasferimento: scegli DA (metodo) e A (metodo)");
       payload.from_payment_method_id = fromMethodId;
@@ -439,7 +410,6 @@ export default function Page() {
     setToMethodId("");
     setFromAccountId("");
     setToAccountId("");
-
     await loadAll(false);
   }
 
@@ -461,8 +431,8 @@ export default function Page() {
 
   async function insertAdjustment() {
     setErrorMsg("");
-
     if (!adjTargetId) return setErrorMsg("Seleziona il target della rettifica");
+
     const amt = Number(adjAmount.replace(",", "."));
     if (!Number.isFinite(amt) || amt === 0) return setErrorMsg("Importo rettifica non valido (usa +/-)");
 
@@ -479,7 +449,6 @@ export default function Page() {
     setAdjAmount("");
     setAdjNote("");
     setAdjTargetId("");
-
     await loadAll(false);
   }
 
@@ -493,25 +462,39 @@ export default function Page() {
     await loadAll(false);
   }
 
-  const adjGrouped = useMemo(() => {
-    return groupMonthDay<AdjustmentRow>(adjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0));
-  }, [adjustments]);
+  async function addBookmaker() {
+    setErrorMsg("");
+    const name = newBookmakerName.trim();
+    if (!name) return setErrorMsg("Inserisci il nome del bookmaker");
 
-  const baselineGrouped = useMemo(() => {
-    return groupMonthDay<AdjustmentRow>(baselineAdjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0));
-  }, [baselineAdjustments]);
+    const { error } = await supabase.rpc("add_bookmaker_and_accounts", { p_bookmaker_name: name });
+    if (error) return setErrorMsg(error.message);
 
-  const txGrouped = useMemo(() => {
-    return groupMonthDay<TxRow>(txs, (x) => x.created_at, (x) => Number(x.amount ?? 0));
-  }, [txs]);
+    setOpenAddBookmaker(false);
+    setNewBookmakerName("");
+    await loadAll(false);
+  }
+
+  const adjGrouped = useMemo(() => groupMonthDay(adjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0)), [adjustments]);
+  const baselineGrouped = useMemo(() => groupMonthDay(baselineAdjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0)), [baselineAdjustments]);
+  const txGrouped = useMemo(() => groupMonthDay(txs, (x) => x.created_at, (x) => Number(x.amount ?? 0)), [txs]);
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Saldi</h1>
-        <button onClick={() => loadAll(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
-          Aggiorna
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setOpenAddBookmaker(true)}
+            className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
+            title="Aggiungi bookmaker"
+          >
+            + Bookmaker
+          </button>
+          <button onClick={() => loadAll(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+            Aggiorna
+          </button>
+        </div>
       </div>
 
       {errorMsg && (
@@ -524,23 +507,18 @@ export default function Page() {
         <div className="mt-6 text-zinc-400">Caricamento…</div>
       ) : (
         <>
-          {/* BOOKMAKER */}
+          {/* BOOKMAKER MATRIX */}
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Bookmaker</h2>
-              <div className="text-sm text-zinc-400">
-                Persone: {people.length} — Bookmaker: {bookmakers.length}
-              </div>
+              <div className="text-sm text-zinc-400">Persone: {people.length} — Bookmaker: {bookmakers.length}</div>
             </div>
 
             <div className="mt-4 overflow-auto rounded-xl border border-zinc-800">
               <table className="min-w-[900px] w-full border-collapse">
                 <thead className="sticky top-0 bg-zinc-900">
                   <tr>
-                    <th className="sticky left-0 z-10 bg-zinc-900 px-3 py-2 text-left text-sm font-semibold text-zinc-200">
-                      Persona
-                    </th>
-
+                    <th className="sticky left-0 z-10 bg-zinc-900 px-3 py-2 text-left text-sm font-semibold text-zinc-200">Persona</th>
                     {bookmakers.map((b) => (
                       <th key={b.name} className="px-3 py-2 text-center text-sm font-semibold text-zinc-200">
                         <img
@@ -557,21 +535,13 @@ export default function Page() {
                     ))}
                   </tr>
                 </thead>
-
                 <tbody>
                   {people.map((p) => (
                     <tr key={p.name} className="border-t border-zinc-800">
-                      <td className="sticky left-0 z-10 bg-zinc-950/60 px-3 py-2 text-sm font-medium text-zinc-100">
-                        {p.name}
-                      </td>
-
+                      <td className="sticky left-0 z-10 bg-zinc-950/60 px-3 py-2 text-sm font-medium text-zinc-100">{p.name}</td>
                       {bookmakers.map((b) => {
                         const v = accountMap.get(`${p.name}||${b.name}`) ?? 0;
-                        return (
-                          <td key={b.name} className={`px-3 py-2 text-sm ${balanceClass(v)}`}>
-                            {euro(v)}
-                          </td>
-                        );
+                        return <td key={b.name} className={`px-3 py-2 text-sm ${balanceClass(v)}`}>{euro(v)}</td>;
                       })}
                     </tr>
                   ))}
@@ -614,11 +584,7 @@ export default function Page() {
                                 <div key={pm.id} className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs">
                                   <div className="text-zinc-300">{pm.label}</div>
                                   <div className={`${balanceClass(Number(pm.balance ?? 0))}`}>{euro(Number(pm.balance ?? 0))}</div>
-                                  {!isZero(Number(pm.pending_incoming ?? 0)) && (
-                                    <div className={`${pendingClass(Number(pm.pending_incoming ?? 0))}`}>
-                                      in transito {euro(Number(pm.pending_incoming ?? 0))}
-                                    </div>
-                                  )}
+                                  {!isZero(Number(pm.pending_incoming ?? 0)) && <div className={`${pendingClass(Number(pm.pending_incoming ?? 0))}`}>in transito {euro(Number(pm.pending_incoming ?? 0))}</div>}
                                 </div>
                               ))}
                             </div>
@@ -632,15 +598,12 @@ export default function Page() {
             </div>
           </div>
 
-          {/* RETTIFICHE + TRANSAZIONI */}
+          {/* COLONNE: RETTIFICHE + TRANSAZIONI */}
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* RETTIFICHE */}
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Rettifiche</h2>
-              </div>
+              <h2 className="text-lg font-semibold">Rettifiche</h2>
 
-              {/* Form */}
               <div className="mt-4 grid gap-3">
                 <label className="text-sm text-zinc-300">
                   Target
@@ -664,33 +627,19 @@ export default function Page() {
 
                 <label className="text-sm text-zinc-300">
                   Importo (+/-)
-                  <input
-                    value={adjAmount}
-                    onChange={(e) => setAdjAmount(e.target.value)}
-                    placeholder="es. 20 oppure -15"
-                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                  />
+                  <input value={adjAmount} onChange={(e) => setAdjAmount(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
                 </label>
 
                 <label className="text-sm text-zinc-300">
                   Nota (opzionale)
-                  <input
-                    value={adjNote}
-                    onChange={(e) => setAdjNote(e.target.value)}
-                    placeholder="promo, casino, correzione..."
-                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                  />
+                  <input value={adjNote} onChange={(e) => setAdjNote(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
                 </label>
 
-                <button
-                  onClick={insertAdjustment}
-                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-                >
+                <button onClick={insertAdjustment} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
                   Salva rettifica
                 </button>
               </div>
 
-              {/* Storico rettifiche (normali) */}
               <div className="mt-6 space-y-3">
                 <h3 className="text-sm font-semibold text-zinc-200">Storico rettifiche</h3>
 
@@ -727,20 +676,14 @@ export default function Page() {
                                   return (
                                     <div key={a.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
                                       <div className="flex items-center justify-between gap-2">
-                                        <div className="text-xs text-zinc-400">
-                                          {new Date(a.created_at).toLocaleString("it-IT")}
-                                        </div>
-                                        <button
-                                          onClick={() => deleteAdjustment(a.id)}
-                                          className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
-                                        >
+                                        <div className="text-xs text-zinc-400">{new Date(a.created_at).toLocaleString("it-IT")}</div>
+                                        <button onClick={() => deleteAdjustment(a.id)} className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700">
                                           Elimina
                                         </button>
                                       </div>
 
                                       <div className="mt-2 text-sm text-zinc-200">
-                                        <span className="text-zinc-400">{a.target_type === "account" ? "Account" : "Metodo"}:</span>{" "}
-                                        {label}
+                                        <span className="text-zinc-400">{a.target_type === "account" ? "Account" : "Metodo"}:</span> {label}
                                       </div>
 
                                       <div className={`mt-1 text-sm font-semibold ${balanceClass(a.amount)}`}>
@@ -761,17 +704,14 @@ export default function Page() {
                 )}
               </div>
 
-              {/* ✅ Rettifiche iniziali (baseline) */}
+              {/* Rettifiche iniziali */}
               <div className="mt-6">
                 <details className="rounded-xl border border-zinc-800 bg-zinc-950/30">
                   <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                     <div className="text-sm font-semibold text-zinc-100">
-                      Rettifiche iniziali
-                      <span className="ml-2 text-xs text-zinc-400">(Set saldo a valore)</span>
+                      Rettifiche iniziali <span className="ml-2 text-xs text-zinc-400">(Set saldo a valore)</span>
                     </div>
-                    <div className="text-sm text-zinc-400">
-                      {baselineAdjustments.length} righe
-                    </div>
+                    <div className="text-sm text-zinc-400">{baselineAdjustments.length} righe</div>
                   </summary>
 
                   <div className="px-4 pb-4">
@@ -807,19 +747,13 @@ export default function Page() {
 
                                       return (
                                         <div key={a.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
-                                          <div className="text-xs text-zinc-400">
-                                            {new Date(a.created_at).toLocaleString("it-IT")}
-                                          </div>
-
+                                          <div className="text-xs text-zinc-400">{new Date(a.created_at).toLocaleString("it-IT")}</div>
                                           <div className="mt-2 text-sm text-zinc-200">
-                                            <span className="text-zinc-400">{a.target_type === "account" ? "Account" : "Metodo"}:</span>{" "}
-                                            {label}
+                                            <span className="text-zinc-400">{a.target_type === "account" ? "Account" : "Metodo"}:</span> {label}
                                           </div>
-
                                           <div className={`mt-1 text-sm font-semibold ${balanceClass(a.amount)}`}>
                                             {a.amount >= 0 ? "+" : ""}{euro(a.amount)}
                                           </div>
-
                                           {a.note && <div className="mt-1 text-xs text-zinc-400">{a.note}</div>}
                                         </div>
                                       );
@@ -839,9 +773,7 @@ export default function Page() {
 
             {/* TRANSAZIONI */}
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Transazioni</h2>
-              </div>
+              <h2 className="text-lg font-semibold">Transazioni</h2>
 
               <div className="mt-4 grid gap-3">
                 <label className="text-sm text-zinc-300">
@@ -868,46 +800,27 @@ export default function Page() {
 
                 <label className="text-sm text-zinc-300">
                   Importo
-                  <input
-                    value={txAmount}
-                    onChange={(e) => setTxAmount(e.target.value)}
-                    placeholder="es. 100"
-                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                  />
+                  <input value={txAmount} onChange={(e) => setTxAmount(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
                 </label>
 
                 <label className="text-sm text-zinc-300">
                   Persona
-                  <select
-                    value={person}
-                    onChange={(e) => setPersonSafe(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                    style={{ colorScheme: "dark" }}
-                  >
-                    {people.map((p) => (
-                      <option key={p.name} value={p.name}>
-                        {p.name}
-                      </option>
-                    ))}
+                  <select value={person} onChange={(e) => setPersonSafe(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" style={{ colorScheme: "dark" }}>
+                    {people.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
                   </select>
                 </label>
 
                 {txKind === "withdraw" ? (
                   <label className="text-sm text-zinc-300">
                     Stato prelievo
-                    <select
-                      value={txStatus}
-                      onChange={(e) => setTxStatus(e.target.value as TxStatus)}
-                      className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                      style={{ colorScheme: "dark" }}
-                    >
+                    <select value={txStatus} onChange={(e) => setTxStatus(e.target.value as TxStatus)}
+                      className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" style={{ colorScheme: "dark" }}>
                       <option value="pending">In transito</option>
                       <option value="completed">Arrivato</option>
                     </select>
                   </label>
-                ) : (
-                  <div />
-                )}
+                ) : <div />}
 
                 <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
                   <div className="text-sm font-semibold text-zinc-200">DA</div>
@@ -937,12 +850,8 @@ export default function Page() {
 
                 <label className="text-sm text-zinc-300">
                   Nota (opzionale)
-                  <input
-                    value={txNote}
-                    onChange={(e) => setTxNote(e.target.value)}
-                    placeholder="deposito/prelievo/giro..."
-                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                  />
+                  <input value={txNote} onChange={(e) => setTxNote(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
                 </label>
 
                 <button onClick={insertTransaction} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
@@ -990,12 +899,10 @@ export default function Page() {
                                         </button>
                                       </div>
                                     </div>
-
                                     <div className="mt-2 text-sm text-zinc-200">
                                       <span className="text-zinc-400">Tipo:</span> {t.tx_kind}{" "}
                                       <span className="text-zinc-400">— Stato:</span> {t.status}
                                     </div>
-
                                     <div className="mt-1 text-sm font-semibold text-zinc-100">Importo: {euro(t.amount)}</div>
                                     {t.note && <div className="mt-1 text-xs text-zinc-400">{t.note}</div>}
                                   </div>
@@ -1012,6 +919,36 @@ export default function Page() {
             </div>
           </div>
         </>
+      )}
+
+      {/* MODAL add bookmaker */}
+      {openAddBookmaker && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Aggiungi bookmaker</h2>
+              <button onClick={() => setOpenAddBookmaker(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+                Chiudi
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <label className="text-sm text-zinc-300">
+                Nome bookmaker
+                <input
+                  value={newBookmakerName}
+                  onChange={(e) => setNewBookmakerName(e.target.value)}
+                  placeholder="es. Planetwin365"
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+
+              <button onClick={addBookmaker} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+                Aggiungi
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );
