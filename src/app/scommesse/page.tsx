@@ -162,18 +162,6 @@ export default function ScommessePage() {
   const [bets, setBets] = useState<Bet[]>([]);
   const [legs, setLegs] = useState<BetLeg[]>([]);
 
-  // ✅ mapping account_id -> meta per NOMI + LOGHI
-  const accountMeta = useMemo(() => {
-    const m = new Map<string, { label: string; slug: string }>();
-    for (const a of accounts) {
-      m.set(a.id, {
-        label: `${a.bookmaker_name} — ${a.person_name}`,
-        slug: slugifyBookmaker(a.bookmaker_name),
-      });
-    }
-    return m;
-  }, [accounts]);
-
   const [betMode, setBetMode] = useState<"single" | "surebet">("surebet");
   const [newDate, setNewDate] = useState("");
   const [newTime, setNewTime] = useState("");
@@ -186,7 +174,7 @@ export default function ScommessePage() {
     setLoading(true);
     setMsg("");
 
-    // 1) carichiamo bets + legs (base)
+    // 1) bets + legs
     const [{ data: b, error: be }, { data: l, error: le }] = await Promise.all([
       supabase
         .from("bets")
@@ -212,26 +200,43 @@ export default function ScommessePage() {
     const betsList = (b ?? []) as Bet[];
     const legsList = (l ?? []) as BetLeg[];
 
-    // 2) estraiamo tutti gli account_id usati e fetchiamo SOLO quelli (robustissimo)
-    const ids = Array.from(new Set(legsList.map((x) => x.account_id).filter(Boolean)));
+    // 2) accounts con saldo > 0 (per la tendina)
+    const { data: posAcc, error: posErr } = await supabase
+      .from("accounts")
+      .select("id,person_name,bookmaker_name,balance")
+      .gt("balance", 0);
 
-    const { data: a, error: ae } =
-      ids.length === 0
-        ? { data: [] as any[], error: null as any }
-        : await supabase
-            .from("accounts")
-            .select("id,person_name,bookmaker_name,balance")
-            .in("id", ids);
-
-    if (ae) {
-      setMsg(ae.message);
+    if (posErr) {
+      setMsg(posErr.message);
       setLoading(false);
       return;
     }
 
+    // 3) accounts usati nelle bet (per mostrare nomi/loghi nello storico anche se saldo è 0)
+    const idsFromLegs = Array.from(new Set(legsList.map((x) => x.account_id).filter(Boolean)));
+    let usedAcc: Account[] = [];
+    if (idsFromLegs.length > 0) {
+      const { data: used, error: usedErr } = await supabase
+        .from("accounts")
+        .select("id,person_name,bookmaker_name,balance")
+        .in("id", idsFromLegs);
+
+      if (usedErr) {
+        setMsg(usedErr.message);
+        setLoading(false);
+        return;
+      }
+      usedAcc = (used ?? []) as Account[];
+    }
+
+    // 4) unione + dedup
+    const map = new Map<string, Account>();
+    for (const a of (posAcc ?? []) as Account[]) map.set(a.id, a);
+    for (const a of usedAcc) map.set(a.id, a);
+
     setBets(betsList);
     setLegs(legsList);
-    setAccounts((a ?? []) as Account[]);
+    setAccounts(Array.from(map.values()));
     setLoading(false);
   }
 
@@ -250,8 +255,22 @@ export default function ScommessePage() {
     }
   }, [betMode]);
 
+  // ✅ mapping per nomi + loghi
+  const accountMeta = useMemo(() => {
+    const m = new Map<string, { label: string; slug: string }>();
+    for (const a of accounts) {
+      m.set(a.id, {
+        label: `${a.bookmaker_name} — ${a.person_name}`,
+        slug: slugifyBookmaker(a.bookmaker_name),
+      });
+    }
+    return m;
+  }, [accounts]);
+
+  // ✅ Tendina: SOLO saldo > 0
   const accountOptions: Option[] = useMemo(() => {
     return accounts
+      .filter((a) => Number(a.balance ?? 0) > 0)
       .map((a) => ({
         id: a.id,
         label: `${a.bookmaker_name} — ${a.person_name} (${euro(Number(a.balance ?? 0))})`,
@@ -285,7 +304,10 @@ export default function ScommessePage() {
 
       const isClosed = bl.every((x) => x.status !== "open");
       const stakeTotal = bl.reduce((s, x) => s + Number(x.stake ?? 0), 0);
-      const payoutTotal = bl.reduce((s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0), 0);
+      const payoutTotal = bl.reduce(
+        (s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0),
+        0
+      );
       const profit = payoutTotal - stakeTotal;
 
       res.push({ bet: b, legs: bl, isClosed, stakeTotal, payoutTotal, profit });
@@ -298,11 +320,9 @@ export default function ScommessePage() {
 
   const closedGrouped = useMemo(() => {
     const monthMap = new Map<string, { monthProfit: number; days: Map<string, { dayProfit: number; bets: BetSummary[] }> }>();
-
     for (const bs of closed) {
       const day = bs.bet.match_date;
       const monthStart = day.slice(0, 7) + "-01";
-
       if (!monthMap.has(monthStart)) monthMap.set(monthStart, { monthProfit: 0, days: new Map() });
       const m = monthMap.get(monthStart)!;
       m.monthProfit += bs.profit;
@@ -312,21 +332,14 @@ export default function ScommessePage() {
       d.dayProfit += bs.profit;
       d.bets.push(bs);
     }
-
     const months = Array.from(monthMap.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
     return months.map(([monthStart, payload]) => {
       const days = Array.from(payload.days.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
-      const daysOut = days.map(([dayISO, dp]) => {
-        dp.bets.sort((x, y) => {
-          const tx = (x.bet.match_time ?? "").slice(0, 5);
-          const ty = (y.bet.match_time ?? "").slice(0, 5);
-          if (tx < ty) return 1;
-          if (tx > ty) return -1;
-          return y.bet.id.localeCompare(x.bet.id);
-        });
-        return { dayISO, dayProfit: dp.dayProfit, bets: dp.bets };
-      });
-      return { monthStart, monthProfit: payload.monthProfit, days: daysOut };
+      return {
+        monthStart,
+        monthProfit: payload.monthProfit,
+        days: days.map(([dayISO, dp]) => ({ dayISO, dayProfit: dp.dayProfit, bets: dp.bets })),
+      };
     });
   }, [closed]);
 
@@ -471,7 +484,6 @@ export default function ScommessePage() {
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Nuova bet</h2>
-
               <label className="text-sm text-zinc-300">
                 Tipo
                 <select
@@ -520,7 +532,7 @@ export default function ScommessePage() {
                 <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                     <div className="md:col-span-2">
-                      <SearchSelect label="Sito (account)" value={l.account_id} options={accountOptions} onChange={(id) => updateNewLeg(i, { account_id: id })} />
+                      <SearchSelect label="Sito (saldo > 0)" value={l.account_id} options={accountOptions} onChange={(id) => updateNewLeg(i, { account_id: id })} />
                     </div>
 
                     <label className="text-sm text-zinc-300">
@@ -583,6 +595,7 @@ export default function ScommessePage() {
                         Elimina
                       </button>
                     </div>
+
                     <div className="mt-3 flex flex-wrap gap-2">
                       {bs.legs.map((l, idx) => (
                         <LegCard key={l.id} leg={l} idx={idx} />
