@@ -650,14 +650,21 @@ export default function RiepilogoPage() {
                   style={{ colorScheme: "dark" }}
                 >
                   <option value="">Seleziona…</option>
-                  {paymentMethodsForSelectedPartner.map((pm) => {
-                    const bal = pmBalanceByPersonAndMethod.get(`${selectedPartnerName}||${pm.label}`)?.balance ?? 0;
-                    return (
-                      <option key={pm.id} value={pm.id}>
-                        {pm.label} (saldo {euro(bal)})
-                      </option>
-                    );
-                  })}
+{paymentMethodsForSelectedPartner
+  .filter((pm) => pm.label !== "__ESTERNO__")
+  .map((pm) => {
+    const bal =
+      pmBalanceByPersonAndMethod.get(
+        `${selectedPartnerName}||${pm.label}`
+      )?.balance ?? 0;
+
+    return (
+      <option key={pm.id} value={pm.id}>
+        {pm.label} (saldo {euro(bal)})
+      </option>
+    );
+  })}
+
                 </select>
               </label>
 
