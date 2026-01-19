@@ -484,7 +484,7 @@ export default function Page() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Saldi</h1>
         <div className="flex items-center gap-2">
-          
+
           <button onClick={() => loadAll(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
             Aggiorna
           </button>
@@ -574,14 +574,21 @@ export default function Page() {
                             <span className="text-zinc-600">—</span>
                           ) : (
                             <div className="flex flex-wrap gap-2">
-                              {list.map((pm) => (
-                                <div key={pm.id} className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs">
-                                  <div className="text-zinc-300">{pm.label}</div>
-                                  <div className={`${balanceClass(Number(pm.balance ?? 0))}`}>{euro(Number(pm.balance ?? 0))}</div>
-                                  {!isZero(Number(pm.pending_incoming ?? 0)) && <div className={`${pendingClass(Number(pm.pending_incoming ?? 0))}`}>in transito {euro(Number(pm.pending_incoming ?? 0))}</div>}
-                                </div>
-                              ))}
-                            </div>
+  {list
+    .filter((pm) => pm.label !== "__ESTERNO__")
+    .map((pm) => (
+      <div key={pm.id} className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs">
+        <div className="text-zinc-300">{pm.label}</div>
+        <div className={`${balanceClass(Number(pm.balance ?? 0))}`}>{euro(Number(pm.balance ?? 0))}</div>
+        {!isZero(Number(pm.pending_incoming ?? 0)) && (
+          <div className={`${pendingClass(Number(pm.pending_incoming ?? 0))}`}>
+            in transito {euro(Number(pm.pending_incoming ?? 0))}
+          </div>
+        )}
+      </div>
+    ))}
+</div>
+
                           )}
                         </td>
                       </tr>
