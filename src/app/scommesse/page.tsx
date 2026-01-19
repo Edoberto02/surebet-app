@@ -532,7 +532,7 @@ export default function ScommessePage() {
                 <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                     <div className="md:col-span-2">
-                      <SearchSelect label="Sito (saldo > 0)" value={l.account_id} options={accountOptions} onChange={(id) => updateNewLeg(i, { account_id: id })} />
+                      <SearchSelect label="Sito" value={l.account_id} options={accountOptions} onChange={(id) => updateNewLeg(i, { account_id: id })} />
                     </div>
 
                     <label className="text-sm text-zinc-300">
