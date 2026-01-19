@@ -484,13 +484,7 @@ export default function Page() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Saldi</h1>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setOpenAddBookmaker(true)}
-            className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
-            title="Aggiungi bookmaker"
-          >
-            + Bookmaker
-          </button>
+          
           <button onClick={() => loadAll(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
             Aggiorna
           </button>
