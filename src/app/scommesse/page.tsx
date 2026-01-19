@@ -408,11 +408,37 @@ export default function ScommessePage() {
   }
 
   async function setLegStatus(legId: string, status: "open" | "win" | "loss") {
-    setMsg("");
-    const { error } = await supabase.from("bet_legs").update({ status }).eq("id", legId);
-    if (error) return setMsg(error.message);
+  setMsg("");
+
+  // Trovo la leg corrente (per capire a quale bet appartiene)
+  const current = legs.find((x) => x.id === legId);
+  if (!current) return;
+
+  const betId = current.bet_id;
+
+  // Aggiorno su Supabase
+  const { error } = await supabase.from("bet_legs").update({ status }).eq("id", legId);
+  if (error) return setMsg(error.message);
+
+  // Aggiorno subito lo stato in UI (senza refresh totale)
+  setLegs((prev) => prev.map((x) => (x.id === legId ? { ...x, status } : x)));
+
+  // Capisco se ORA la bet è chiusa (cioè nessuna leg è più open)
+  const nextLegsForBet = legs
+    .filter((x) => x.bet_id === betId)
+    .map((x) => (x.id === legId ? { ...x, status } : x));
+
+  const isNowClosed = nextLegsForBet.every((x) => x.status !== "open");
+
+  // Se è chiusa, allora faccio il refresh completo UNA VOLTA SOLA
+  // e mantengo la posizione scroll (così non torna su)
+  if (isNowClosed) {
+    const y = window.scrollY;
     await loadAll();
+    requestAnimationFrame(() => window.scrollTo(0, y));
   }
+}
+
 
   async function deleteBet(betId: string) {
     const ok = window.confirm("Eliminare questa bet? (ripristina i saldi)");
