@@ -200,6 +200,10 @@ export default function Page() {
   // modal add bookmaker
   const [openAddBookmaker, setOpenAddBookmaker] = useState(false);
   const [newBookmakerName, setNewBookmakerName] = useState("");
+  // ✅ modal add person (non socia)
+const [openAddPerson, setOpenAddPerson] = useState(false);
+const [newPersonName, setNewPersonName] = useState("");
+
 
   const [person, _setPerson] = useState("");
   const personRef = useRef<string>("");
@@ -474,6 +478,21 @@ export default function Page() {
     setNewBookmakerName("");
     await loadAll(false);
   }
+  async function addPerson() {
+  setErrorMsg("");
+  const name = newPersonName.trim();
+  if (!name) return setErrorMsg("Inserisci il nome della persona");
+
+  const { error } = await supabase.rpc("add_person_accounts_with_default_paypal", {
+    p_person_name: name,
+  });
+  if (error) return setErrorMsg(error.message);
+
+  setOpenAddPerson(false);
+  setNewPersonName("");
+  await loadAll(false);
+}
+
 
   const adjGrouped = useMemo(() => groupMonthDay(adjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0)), [adjustments]);
   const baselineGrouped = useMemo(() => groupMonthDay(baselineAdjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0)), [baselineAdjustments]);
@@ -484,11 +503,22 @@ export default function Page() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Saldi</h1>
         <div className="flex items-center gap-2">
+  <button
+    onClick={() => setOpenAddPerson(true)}
+    className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
+    title="Aggiungi persona (solo account)"
+  >
+    + Persona
+  </button>
 
-          <button onClick={() => loadAll(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
-            Aggiorna
-          </button>
-        </div>
+  <button
+    onClick={() => loadAll(false)}
+    className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+  >
+    Aggiorna
+  </button>
+</div>
+
       </div>
 
       {errorMsg && (
@@ -951,6 +981,46 @@ export default function Page() {
           </div>
         </div>
       )}
+      {/* MODAL add person */}
+{openAddPerson && (
+  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+    <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Aggiungi persona (account)</h2>
+        <button
+          onClick={() => setOpenAddPerson(false)}
+          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+        >
+          Chiudi
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <label className="text-sm text-zinc-300">
+          Nome persona
+          <input
+            value={newPersonName}
+            onChange={(e) => setNewPersonName(e.target.value)}
+            placeholder="es. Giorgia"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+        </label>
+
+        <button
+          onClick={addPerson}
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+        >
+          Crea persona
+        </button>
+
+        <div className="text-xs text-zinc-500">
+          Crea la persona, tutti gli account bookmaker e il metodo PayPal predefinito.
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
     </main>
   );
 }
