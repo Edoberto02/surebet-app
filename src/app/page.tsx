@@ -940,11 +940,41 @@ const [newPersonName, setNewPersonName] = useState("");
                                       </div>
                                     </div>
                                     <div className="mt-2 text-sm text-zinc-200">
-                                      <span className="text-zinc-400">Tipo:</span> {t.tx_kind}{" "}
-                                      <span className="text-zinc-400">— Stato:</span> {t.status}
-                                    </div>
-                                    <div className="mt-1 text-sm font-semibold text-zinc-100">Importo: {euro(t.amount)}</div>
-                                    {t.note && <div className="mt-1 text-xs text-zinc-400">{t.note}</div>}
+  <span className="text-zinc-400">Tipo:</span> {t.tx_kind}{" "}
+  <span className="text-zinc-400">— Stato:</span> {t.status}
+</div>
+
+{/* Dettaglio DA → A */}
+{t.tx_kind === "deposit" && (
+  <div className="mt-1 text-sm text-zinc-200">
+    <span className="text-zinc-400">Da:</span>{" "}
+    {methodLabelById.get(t.from_payment_method_id ?? "") ?? "—"}{" "}
+    <span className="text-zinc-400">→ A:</span>{" "}
+    {accountLabelById.get(t.to_account_id ?? "") ?? "—"}
+  </div>
+)}
+
+{t.tx_kind === "withdraw" && (
+  <div className="mt-1 text-sm text-zinc-200">
+    <span className="text-zinc-400">Da:</span>{" "}
+    {accountLabelById.get(t.from_account_id ?? "") ?? "—"}{" "}
+    <span className="text-zinc-400">→ A:</span>{" "}
+    {methodLabelById.get(t.to_payment_method_id ?? "") ?? "—"}
+  </div>
+)}
+
+{t.tx_kind === "transfer" && (
+  <div className="mt-1 text-sm text-zinc-200">
+    <span className="text-zinc-400">Da:</span>{" "}
+    {methodLabelById.get(t.from_payment_method_id ?? "") ?? "—"}{" "}
+    <span className="text-zinc-400">→ A:</span>{" "}
+    {methodLabelById.get(t.to_payment_method_id ?? "") ?? "—"}
+  </div>
+)}
+
+<div className="mt-1 text-sm font-semibold text-zinc-100">Importo: {euro(t.amount)}</div>
+{t.note && <div className="mt-1 text-xs text-zinc-400">{t.note}</div>}
+
                                   </div>
                                 ))}
                               </div>
