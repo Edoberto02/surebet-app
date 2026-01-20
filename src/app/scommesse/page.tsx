@@ -537,12 +537,13 @@ export default function ScommessePage() {
         <div className="mt-2 flex items-center justify-between gap-2">
   <StatusPills status={leg.status} onSet={(s) => setLegStatus(leg.id, s)} />
   <button
-    type="button"
-    onClick={() => openEditLeg(leg)}
-    className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1 text-xs font-semibold text-zinc-200 hover:bg-zinc-900"
-  >
-    Modifica
-  </button>
+  type="button"
+  onClick={() => openEditLeg(leg)}
+  className="rounded-lg border border-yellow-600 bg-yellow-900/40 px-3 py-1 text-xs font-semibold text-yellow-200 hover:bg-yellow-800/60"
+>
+  Modifica
+</button>
+
 </div>
 
       </div>
