@@ -362,6 +362,18 @@ const [newPersonName, setNewPersonName] = useState("");
     for (const pm of paymentMethods) m.set(pm.id, `${pm.label} (${pm.owner_name})`);
     return m;
   }, [paymentMethods]);
+  const accountById = useMemo(() => {
+  const m = new Map<string, AccountRow>();
+  for (const a of accounts) m.set(a.id, a);
+  return m;
+}, [accounts]);
+
+const methodById = useMemo(() => {
+  const m = new Map<string, PaymentMethodRow>();
+  for (const pm of paymentMethods) m.set(pm.id, pm);
+  return m;
+}, [paymentMethods]);
+
 
   useEffect(() => {
     setFromMethodId("");
@@ -436,6 +448,54 @@ const [newPersonName, setNewPersonName] = useState("");
 
     await loadAll(false);
   }
+  function BookmakerLogo({ accountId }: { accountId: string | null }) {
+  if (!accountId) return <span className="text-zinc-600">—</span>;
+
+  const acc = accountById.get(accountId);
+  if (!acc) return <span className="text-zinc-600">—</span>;
+
+  const slug = slugifyBookmaker(acc.bookmaker_name);
+
+  return (
+    <div className="inline-flex items-center gap-2">
+      <img
+        src={`/bookmakers/${slug}.png`}
+        alt={acc.bookmaker_name}
+        className="h-6 w-auto max-w-[110px] object-contain"
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).style.display = "none";
+        }}
+      />
+      <div className="text-xs text-zinc-300">
+        {acc.bookmaker_name}
+        <span className="text-zinc-500"> · {acc.person_name}</span>
+      </div>
+    </div>
+  );
+}
+
+function MethodBox({ methodId }: { methodId: string | null }) {
+  if (!methodId) return <span className="text-zinc-600">—</span>;
+
+  const pm = methodById.get(methodId);
+  if (!pm) return <span className="text-zinc-600">—</span>;
+
+  // ✅ Nascondiamo __ESTERNO__ anche qui (per sicurezza)
+  if (pm.label === "__ESTERNO__") return <span className="text-zinc-600">—</span>;
+
+  return (
+    <div className="inline-block rounded-lg border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs">
+      <div className="text-zinc-300">{pm.label}</div>
+      <div className={`${balanceClass(Number(pm.balance ?? 0))}`}>{euro(Number(pm.balance ?? 0))}</div>
+      {!isZero(Number(pm.pending_incoming ?? 0)) && (
+        <div className={`${pendingClass(Number(pm.pending_incoming ?? 0))}`}>
+          in transito {euro(Number(pm.pending_incoming ?? 0))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
   async function insertAdjustment() {
     setErrorMsg("");
@@ -946,31 +1006,34 @@ const [newPersonName, setNewPersonName] = useState("");
 
 {/* Dettaglio DA → A */}
 {t.tx_kind === "deposit" && (
-  <div className="mt-1 text-sm text-zinc-200">
-    <span className="text-zinc-400">Da:</span>{" "}
-    {methodLabelById.get(t.from_payment_method_id ?? "") ?? "—"}{" "}
-    <span className="text-zinc-400">→ A:</span>{" "}
-    {accountLabelById.get(t.to_account_id ?? "") ?? "—"}
+  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
+    <span className="text-zinc-400">Da:</span>
+    <MethodBox methodId={t.from_payment_method_id} />
+    <span className="text-zinc-400">→ A:</span>
+    <BookmakerLogo accountId={t.to_account_id} />
   </div>
 )}
+
 
 {t.tx_kind === "withdraw" && (
-  <div className="mt-1 text-sm text-zinc-200">
-    <span className="text-zinc-400">Da:</span>{" "}
-    {accountLabelById.get(t.from_account_id ?? "") ?? "—"}{" "}
-    <span className="text-zinc-400">→ A:</span>{" "}
-    {methodLabelById.get(t.to_payment_method_id ?? "") ?? "—"}
+  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
+    <span className="text-zinc-400">Da:</span>
+    <BookmakerLogo accountId={t.from_account_id} />
+    <span className="text-zinc-400">→ A:</span>
+    <MethodBox methodId={t.to_payment_method_id} />
   </div>
 )}
 
+
 {t.tx_kind === "transfer" && (
-  <div className="mt-1 text-sm text-zinc-200">
-    <span className="text-zinc-400">Da:</span>{" "}
-    {methodLabelById.get(t.from_payment_method_id ?? "") ?? "—"}{" "}
-    <span className="text-zinc-400">→ A:</span>{" "}
-    {methodLabelById.get(t.to_payment_method_id ?? "") ?? "—"}
+  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
+    <span className="text-zinc-400">Da:</span>
+    <MethodBox methodId={t.from_payment_method_id} />
+    <span className="text-zinc-400">→ A:</span>
+    <MethodBox methodId={t.to_payment_method_id} />
   </div>
 )}
+
 
 <div className="mt-1 text-sm font-semibold text-zinc-100">Importo: {euro(t.amount)}</div>
 {t.note && <div className="mt-1 text-xs text-zinc-400">{t.note}</div>}
