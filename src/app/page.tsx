@@ -328,12 +328,14 @@ const [newPersonName, setNewPersonName] = useState("");
   }, [accounts, person]);
 
   const methodOptionsForPerson: Option[] = useMemo(() => {
-    if (!person) return [];
-    return paymentMethods
-      .filter((pm) => pm.owner_name === person && !!pm.id)
-      .map((pm) => ({ id: pm.id, label: `${pm.label} (${pm.owner_name})` }))
-      .sort((x, y) => x.label.localeCompare(y.label));
-  }, [paymentMethods, person]);
+  if (!person) return [];
+  return paymentMethods
+    .filter((pm) => pm.owner_name === person && !!pm.id)
+    .filter((pm) => pm.label !== "__ESTERNO__")
+    .map((pm) => ({ id: pm.id, label: `${pm.label} (${pm.owner_name})` }))
+    .sort((x, y) => x.label.localeCompare(y.label));
+}, [paymentMethods, person]);
+
 
   const allAccountOptions: Option[] = useMemo(() => {
     return accounts
@@ -342,10 +344,12 @@ const [newPersonName, setNewPersonName] = useState("");
   }, [accounts]);
 
   const allMethodOptions: Option[] = useMemo(() => {
-    return paymentMethods
-      .map((pm) => ({ id: pm.id, label: `${pm.label} (${pm.owner_name})` }))
-      .sort((x, y) => x.label.localeCompare(y.label));
-  }, [paymentMethods]);
+  return paymentMethods
+    .filter((pm) => pm.label !== "__ESTERNO__")
+    .map((pm) => ({ id: pm.id, label: `${pm.label} (${pm.owner_name})` }))
+    .sort((x, y) => x.label.localeCompare(y.label));
+}, [paymentMethods]);
+
 
   const accountLabelById = useMemo(() => {
     const m = new Map<string, string>();
