@@ -873,14 +873,19 @@ const [newPersonName, setNewPersonName] = useState("");
                 <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
                   <div className="text-sm font-semibold text-zinc-200">A</div>
                   {txKind === "deposit" ? (
-                    <div className="mt-2">
-                      <SearchSelect label="Account bookmaker" value={toAccountId} options={accountOptionsForPerson} onChange={setToAccountId} />
-                    </div>
-                  ) : (
-                    <div className="mt-2">
-                      <SearchSelect label="Metodo di pagamento" value={toMethodId} options={methodOptionsForPerson} onChange={setToMethodId} />
-                    </div>
-                  )}
+  <div className="mt-2">
+    <SearchSelect label="Account bookmaker" value={toAccountId} options={accountOptionsForPerson} onChange={setToAccountId} />
+  </div>
+) : txKind === "transfer" ? (
+  <div className="mt-2">
+    <SearchSelect label="Metodo di pagamento" value={toMethodId} options={allMethodOptions} onChange={setToMethodId} />
+  </div>
+) : (
+  <div className="mt-2">
+    <SearchSelect label="Metodo di pagamento" value={toMethodId} options={methodOptionsForPerson} onChange={setToMethodId} />
+  </div>
+)}
+
                 </div>
 
                 <label className="text-sm text-zinc-300">
