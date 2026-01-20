@@ -161,6 +161,14 @@ export default function ScommessePage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
   const [legs, setLegs] = useState<BetLeg[]>([]);
+    // ✅ MODAL modifica leg
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editLegId, setEditLegId] = useState<string>("");
+  const [editAccountId, setEditAccountId] = useState<string>("");
+  const [editStake, setEditStake] = useState<string>("");
+  const [editOdds, setEditOdds] = useState<string>("");
+  const [editErr, setEditErr] = useState<string>("");
+
 
   const [betMode, setBetMode] = useState<"single" | "surebet">("surebet");
   const [newDate, setNewDate] = useState("");
@@ -277,6 +285,16 @@ export default function ScommessePage() {
       }))
       .sort((x, y) => x.label.localeCompare(y.label));
   }, [accounts]);
+    // ✅ Tendina MODIFICA: tutti gli account (anche saldo 0)
+  const allAccountOptions: Option[] = useMemo(() => {
+    return accounts
+      .map((a) => ({
+        id: a.id,
+        label: `${a.bookmaker_name} — ${a.person_name} (${euro(Number(a.balance ?? 0))})`,
+      }))
+      .sort((x, y) => x.label.localeCompare(y.label));
+  }, [accounts]);
+
 
   const legsByBet = useMemo(() => {
     const m = new Map<string, BetLeg[]>();
@@ -451,6 +469,42 @@ export default function ScommessePage() {
     setMsg("✅ Bet eliminata");
     await loadAll();
   }
+    function openEditLeg(leg: BetLeg) {
+    setEditErr("");
+    setEditLegId(leg.id);
+    setEditAccountId(leg.account_id);
+    setEditStake(String(leg.stake ?? ""));
+    setEditOdds(String(leg.odds ?? ""));
+    setOpenEdit(true);
+  }
+
+  async function saveEditLeg() {
+    setEditErr("");
+
+    const stake = toNumber(editStake);
+    const odds = toNumber(editOdds);
+
+    if (!editLegId) return setEditErr("Leg non valida");
+    if (!editAccountId) return setEditErr("Seleziona il bookmaker");
+    if (!Number.isFinite(stake) || stake <= 0) return setEditErr("Importo non valido");
+    if (!Number.isFinite(odds) || odds <= 1) return setEditErr("Quota non valida");
+
+    const y = window.scrollY;
+
+    const { error } = await supabase.rpc("replace_bet_leg", {
+      p_leg_id: editLegId,
+      p_new_account_id: editAccountId,
+      p_new_stake: stake,
+      p_new_odds: odds,
+    });
+
+    if (error) return setEditErr(error.message);
+
+    setOpenEdit(false);
+    await loadAll();
+    requestAnimationFrame(() => window.scrollTo(0, y));
+  }
+
 
   function Logo({ accountId }: { accountId: string }) {
     const meta = accountMeta.get(accountId);
@@ -480,9 +534,17 @@ export default function ScommessePage() {
         <div className="text-zinc-100">
           quota: <span className="font-semibold">{leg.odds}</span>
         </div>
-        <div className="mt-2">
-          <StatusPills status={leg.status} onSet={(s) => setLegStatus(leg.id, s)} />
-        </div>
+        <div className="mt-2 flex items-center justify-between gap-2">
+  <StatusPills status={leg.status} onSet={(s) => setLegStatus(leg.id, s)} />
+  <button
+    type="button"
+    onClick={() => openEditLeg(leg)}
+    className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1 text-xs font-semibold text-zinc-200 hover:bg-zinc-900"
+  >
+    Modifica
+  </button>
+</div>
+
       </div>
     );
   }
@@ -700,6 +762,64 @@ export default function ScommessePage() {
           </div>
         </>
       )}
+            {openEdit && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Modifica leg</h2>
+              <button
+                onClick={() => setOpenEdit(false)}
+                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+              >
+                Chiudi
+              </button>
+            </div>
+
+            {editErr && (
+              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                {editErr}
+              </div>
+            )}
+
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <div>
+                <SearchSelect
+                  label="Bookmaker / Persona"
+                  value={editAccountId}
+                  options={allAccountOptions}
+                  onChange={setEditAccountId}
+                />
+              </div>
+
+              <label className="text-sm text-zinc-300">
+                Importo
+                <input
+                  value={editStake}
+                  onChange={(e) => setEditStake(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+
+              <label className="text-sm text-zinc-300">
+                Quota
+                <input
+                  value={editOdds}
+                  onChange={(e) => setEditOdds(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+
+              <button
+                onClick={saveEditLeg}
+                className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+              >
+                Salva modifiche
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
