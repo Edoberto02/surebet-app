@@ -701,7 +701,7 @@ function openEditBetModal(bet: Bet) {
             </button>
           </div>
 
-          {/* In corso */}
+                    {/* In corso */}
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">In corso</h2>
@@ -718,23 +718,22 @@ function openEditBetModal(bet: Bet) {
                       <div className="text-sm text-zinc-200">
                         {bs.bet.match_date} — {(bs.bet.match_time ?? "").slice(0, 5)}
                       </div>
+
                       <div className="flex items-center gap-2">
-  <button
-  onClick={() => openEditBetModal(bs.bet)}
-  className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
->
-  Modifica data/ora
-</button>
+                        <button
+                          onClick={() => openEditBetModal(bs.bet)}
+                          className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
+                        >
+                          Modifica data/ora
+                        </button>
 
-
-  <button
-    onClick={() => deleteBet(bs.bet.id)}
-    className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
-  >
-    Elimina
-  </button>
-</div>
-
+                        <button
+                          onClick={() => deleteBet(bs.bet.id)}
+                          className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+                        >
+                          Elimina
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -748,101 +747,191 @@ function openEditBetModal(bet: Bet) {
             )}
           </div>
 
-          {/* Storico */}
-<div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-  <div className="flex items-center justify-between">
-    <h2 className="text-lg font-semibold">Storico (chiuse)</h2>
-    <div className="text-sm text-zinc-400">{closed.length} bet</div>
-  </div>
-
-  {closedGrouped.length === 0 ? (
-    <div className="mt-3 text-zinc-500">Nessuna bet chiusa.</div>
-  ) : (
-    <div className="mt-4 space-y-3">
-      {closedGrouped.map((m) => (
-        <details
-          key={m.monthStart}
-          className="rounded-xl border border-zinc-800 bg-zinc-950/30"
-        >
-          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-            <div className="text-sm font-semibold text-zinc-100">
-              {monthLabel(m.monthStart)}
+          {/* Storico (chiuse) */}
+          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Storico (chiuse)</h2>
+              <div className="text-sm text-zinc-400">{closed.length} bet</div>
             </div>
-            <div className={`text-sm font-semibold ${signClass(m.monthProfit)}`}>
-              {m.monthProfit >= 0 ? "+" : ""}
-              {euro(m.monthProfit)}
-            </div>
-          </summary>
 
-          <div className="px-4 pb-4 space-y-2">
-            {m.days.map((d) => (
-              <details
-                key={d.dayISO}
-                className="rounded-xl border border-zinc-800 bg-zinc-950/40"
-              >
-                <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                  <div className="text-sm text-zinc-100">{d.dayISO}</div>
-                  <div
-                    className={`text-sm font-semibold ${signClass(
-                      d.dayProfit
-                    )}`}
-                  >
-                    {d.dayProfit >= 0 ? "+" : ""}
-                    {euro(d.dayProfit)}
-                  </div>
-                </summary>
-
-                <div className="px-4 pb-4 space-y-3">
-                  {d.bets.map((bs) => (
-                    <div
-                      key={bs.bet.id}
-                      className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-zinc-200">
-                          {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
-                          <span
-                            className={`font-semibold ${signClass(
-                              bs.profit
-                            )}`}
-                          >
-                            {bs.profit >= 0 ? "+" : ""}
-                            {euro(bs.profit)}
-                          </span>
-                        </div>
-
-                        <button
-                          onClick={() => deleteBet(bs.bet.id)}
-                          className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
-                        >
-                          Elimina
-                        </button>
+            {closedGrouped.length === 0 ? (
+              <div className="mt-3 text-zinc-500">Nessuna bet chiusa.</div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {closedGrouped.map((m) => (
+                  <details key={m.monthStart} className="rounded-xl border border-zinc-800 bg-zinc-950/30">
+                    <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                      <div className="text-sm font-semibold text-zinc-100">{monthLabel(m.monthStart)}</div>
+                      <div className={`text-sm font-semibold ${signClass(m.monthProfit)}`}>
+                        {m.monthProfit >= 0 ? "+" : ""}
+                        {euro(m.monthProfit)}
                       </div>
+                    </summary>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {bs.legs.map((l, idx) => (
-                          <LegCard key={l.id} leg={l} idx={idx} />
-                        ))}
-                      </div>
+                    <div className="px-4 pb-4 space-y-2">
+                      {m.days.map((d) => (
+                        <details key={d.dayISO} className="rounded-xl border border-zinc-800 bg-zinc-950/40">
+                          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                            <div className="text-sm text-zinc-100">{d.dayISO}</div>
+                            <div className={`text-sm font-semibold ${signClass(d.dayProfit)}`}>
+                              {d.dayProfit >= 0 ? "+" : ""}
+                              {euro(d.dayProfit)}
+                            </div>
+                          </summary>
 
-                      <div className="mt-2 text-xs text-zinc-500">
-                        Stake: {euro(bs.stakeTotal)} — Payout:{" "}
-                        {euro(bs.payoutTotal)}
-                      </div>
+                          <div className="px-4 pb-4 space-y-3">
+                            {d.bets.map((bs) => (
+                              <div key={bs.bet.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-sm text-zinc-200">
+                                    {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
+                                    <span className={`font-semibold ${signClass(bs.profit)}`}>
+                                      {bs.profit >= 0 ? "+" : ""}
+                                      {euro(bs.profit)}
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    onClick={() => deleteBet(bs.bet.id)}
+                                    className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+                                  >
+                                    Elimina
+                                  </button>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {bs.legs.map((l, idx) => (
+                                    <LegCard key={l.id} leg={l} idx={idx} />
+                                  ))}
+                                </div>
+
+                                <div className="mt-2 text-xs text-zinc-500">
+                                  Stake: {euro(bs.stakeTotal)} — Payout: {euro(bs.payoutTotal)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </details>
-            ))}
+                  </details>
+                ))}
+              </div>
+            )}
           </div>
-        </details>
-      ))}
-    </div>
-  )}
-</div>
-</>
-)}
-</main>
+        </>
+      )}
 
+      {/* MODAL: Modifica data/ora bet */}
+      {openEditBet && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Modifica data/ora bet</h2>
+              <button
+                onClick={() => setOpenEditBet(false)}
+                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+              >
+                Chiudi
+              </button>
+            </div>
+
+            {editBetErr && (
+              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                {editBetErr}
+              </div>
+            )}
+
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="text-sm text-zinc-300">
+                Data
+                <input
+                  type="date"
+                  value={editBetDate}
+                  onChange={(e) => setEditBetDate(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+
+              <label className="text-sm text-zinc-300">
+                Ora
+                <input
+                  type="time"
+                  value={editBetTime}
+                  onChange={(e) => setEditBetTime(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={saveEditBet}
+              className="mt-6 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+            >
+              Salva
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Modifica leg */}
+      {openEdit && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Modifica leg</h2>
+              <button
+                onClick={() => setOpenEdit(false)}
+                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+              >
+                Chiudi
+              </button>
+            </div>
+
+            {editErr && (
+              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                {editErr}
+              </div>
+            )}
+
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <div>
+                <SearchSelect
+                  label="Bookmaker / Persona"
+                  value={editAccountId}
+                  options={allAccountOptions}
+                  onChange={setEditAccountId}
+                />
+              </div>
+
+              <label className="text-sm text-zinc-300">
+                Importo
+                <input
+                  value={editStake}
+                  onChange={(e) => setEditStake(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+
+              <label className="text-sm text-zinc-300">
+                Quota
+                <input
+                  value={editOdds}
+                  onChange={(e) => setEditOdds(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+
+              <button
+                onClick={saveEditLeg}
+                className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+              >
+                Salva modifiche
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
