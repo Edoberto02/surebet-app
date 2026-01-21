@@ -157,6 +157,13 @@ function StatusPills({
 export default function ScommessePage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
+  // ===== MODIFICA BET (data/ora) =====
+const [openEditBet, setOpenEditBet] = useState(false);
+const [editBetId, setEditBetId] = useState<string>("");
+const [editBetDate, setEditBetDate] = useState<string>("");
+const [editBetTime, setEditBetTime] = useState<string>("");
+const [editBetErr, setEditBetErr] = useState<string>("");
+
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
@@ -168,6 +175,12 @@ export default function ScommessePage() {
   const [editStake, setEditStake] = useState<string>("");
   const [editOdds, setEditOdds] = useState<string>("");
   const [editErr, setEditErr] = useState<string>("");
+function openEditBetModal(bet: Bet) {
+  setEditErr("");
+  setNewDate(bet.match_date);
+  setNewTime((bet.match_time ?? "").slice(0, 5));
+  setOpenEdit(true);
+}
 
 
   const [betMode, setBetMode] = useState<"single" | "surebet">("surebet");
@@ -469,6 +482,7 @@ export default function ScommessePage() {
     setMsg("✅ Bet eliminata");
     await loadAll();
   }
+  
     function openEditLeg(leg: BetLeg) {
     setEditErr("");
     setEditLegId(leg.id);
@@ -680,9 +694,22 @@ export default function ScommessePage() {
                       <div className="text-sm text-zinc-200">
                         {bs.bet.match_date} — {(bs.bet.match_time ?? "").slice(0, 5)}
                       </div>
-                      <button onClick={() => deleteBet(bs.bet.id)} className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700">
-                        Elimina
-                      </button>
+                      <div className="flex items-center gap-2">
+  <button
+    onClick={() => openEditBetModal(bs.bet)}
+    className="rounded-xl bg-yellow-900/40 border border-yellow-600 px-3 py-2 text-xs font-semibold text-yellow-200 hover:bg-yellow-800/60"
+  >
+    Modifica
+  </button>
+
+  <button
+    onClick={() => deleteBet(bs.bet.id)}
+    className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+  >
+    Elimina
+  </button>
+</div>
+
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -736,9 +763,28 @@ export default function ScommessePage() {
                                       {bs.profit >= 0 ? "+" : ""}{euro(bs.profit)}
                                     </span>
                                   </div>
-                                  <button onClick={() => deleteBet(bs.bet.id)} className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700">
-                                    Elimina
-                                  </button>
+                                  <div className="flex items-center justify-between">
+  <div className="text-sm text-zinc-200">
+    {bs.bet.match_date} — {(bs.bet.match_time ?? "").slice(0, 5)}
+  </div>
+
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => openEditBetModal(bs.bet)}
+      className="rounded-xl bg-yellow-900/40 border border-yellow-600 px-3 py-2 text-xs font-semibold text-yellow-200 hover:bg-yellow-800/60"
+    >
+      Modifica
+    </button>
+
+    <button
+      onClick={() => deleteBet(bs.bet.id)}
+      className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+    >
+      Elimina
+    </button>
+  </div>
+</div>
+
                                 </div>
 
                                 <div className="mt-3 flex flex-wrap gap-2">
