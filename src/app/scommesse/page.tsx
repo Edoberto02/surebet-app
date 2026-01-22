@@ -30,6 +30,10 @@ type BetSummary = {
   payoutTotal: number;
   profit: number;
 };
+function formatDateIT(dateISO: string) {
+  const [y, m, d] = dateISO.split("-");
+  return `${d}-${m}-${y}`;
+}
 
 function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
