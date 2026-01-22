@@ -770,13 +770,13 @@ function openEditBetModal(bet: Bet) {
     title={bs.bet.needs_review ? "Segnata per revisione" : "Segna per revisione"}
   />
   <div className="text-sm text-zinc-200 flex items-center gap-2">
-  {bs.bet.match_date} — {(bs.bet.match_time ?? "").slice(0, 5)}
+  {formatDateIT(bs.bet.match_date)} — {(bs.bet.match_time ?? "").slice(0, 5)}
   {isTwoHoursPastStart(bs.bet.match_date, bs.bet.match_time) && (
   <span
     title="Partita presumibilmente terminata"
     className="rounded-md bg-emerald-700/80 px-2 py-0.5 text-xs font-semibold text-emerald-100 border border-emerald-600"
   >
-    finita
+    Finita
   </span>
 )}
 
@@ -838,7 +838,7 @@ function openEditBetModal(bet: Bet) {
                       {m.days.map((d) => (
                         <details key={d.dayISO} className="rounded-xl border border-zinc-800 bg-zinc-950/40">
                           <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                            <div className="text-sm text-zinc-100">{d.dayISO}</div>
+                            <div className="text-sm text-zinc-100">{formatDateIT(d.dayISO)}</div>
                             <div className={`text-sm font-semibold ${signClass(d.dayProfit)}`}>
                               {d.dayProfit >= 0 ? "+" : ""}
                               {euro(d.dayProfit)}
