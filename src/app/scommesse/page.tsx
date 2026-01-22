@@ -275,6 +275,14 @@ function openEditBetModal(bet: Bet) {
   useEffect(() => {
     loadAll();
   }, []);
+  useEffect(() => {
+  const t = setInterval(() => {
+    // re-render leggero per aggiornare la ✅ senza chiamare il DB
+    setMsg((m) => m);
+  }, 60000);
+  return () => clearInterval(t);
+}, []);
+
 
   useEffect(() => {
     if (betMode === "single") {
