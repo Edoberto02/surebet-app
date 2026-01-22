@@ -5,7 +5,8 @@ import { supabase } from "../lib/supabase";
 
 type Account = { id: string; person_name: string; bookmaker_name: string; balance: number };
 
-type Bet = { id: string; match_date: string; match_time: string; note: string | null; created_at: string };
+type Bet = { id: string; match_date: string; match_time: string; note: string | null; created_at: string; needs_review: boolean };
+
 
 type BetLeg = {
   id: string;
