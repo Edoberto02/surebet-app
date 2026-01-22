@@ -772,10 +772,14 @@ function openEditBetModal(bet: Bet) {
   <div className="text-sm text-zinc-200 flex items-center gap-2">
   {bs.bet.match_date} — {(bs.bet.match_time ?? "").slice(0, 5)}
   {isTwoHoursPastStart(bs.bet.match_date, bs.bet.match_time) && (
-    <span title="Partita presumibilmente terminata" className="text-emerald-300 font-semibold">
-      ✅
-    </span>
-  )}
+  <span
+    title="Partita presumibilmente terminata"
+    className="rounded-md bg-emerald-700/80 px-2 py-0.5 text-xs font-semibold text-emerald-100 border border-emerald-600"
+  >
+    finita
+  </span>
+)}
+
 </div>
 
 </div>
