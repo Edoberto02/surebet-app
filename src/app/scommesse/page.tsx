@@ -47,6 +47,13 @@ function monthLabel(monthStartISO: string) {
   const txt = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(d);
   return txt.charAt(0).toUpperCase() + txt.slice(1);
 }
+function isTwoHoursPastStart(match_date: string, match_time: string) {
+  const t = (match_time ?? "00:00").slice(0, 5);
+  const start = new Date(`${match_date}T${t}:00`).getTime();
+  const now = Date.now();
+  return now >= start + 2 * 60 * 60 * 1000; // +2 ore
+}
+
 function slugifyBookmaker(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9]/g, "");
 }
@@ -754,9 +761,15 @@ function openEditBetModal(bet: Bet) {
     }`}
     title={bs.bet.needs_review ? "Segnata per revisione" : "Segna per revisione"}
   />
-  <div className="text-sm text-zinc-200">
-    {bs.bet.match_date} — {(bs.bet.match_time ?? "").slice(0, 5)}
-  </div>
+  <div className="text-sm text-zinc-200 flex items-center gap-2">
+  {bs.bet.match_date} — {(bs.bet.match_time ?? "").slice(0, 5)}
+  {isTwoHoursPastStart(bs.bet.match_date, bs.bet.match_time) && (
+    <span title="Partita presumibilmente terminata" className="text-emerald-300 font-semibold">
+      ✅
+    </span>
+  )}
+</div>
+
 </div>
 
 
