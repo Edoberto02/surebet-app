@@ -349,7 +349,18 @@ function openEditBetModal(bet: Bet) {
     return res;
   }, [bets, legsByBet]);
 
-  const inProgress = useMemo(() => summaries.filter((x) => !x.isClosed), [summaries]);
+  const inProgress = useMemo(() => {
+  const toTs = (b: Bet) => {
+    // match_date = "YYYY-MM-DD", match_time = "HH:MM:SS" o "HH:MM"
+    const t = (b.match_time ?? "00:00").slice(0, 5);
+    return new Date(`${b.match_date}T${t}:00`).getTime();
+  };
+
+  return summaries
+    .filter((x) => !x.isClosed)
+    .sort((a, b) => toTs(a.bet) - toTs(b.bet)); // ✅ più vicina sopra
+}, [summaries]);
+
   const closed = useMemo(() => summaries.filter((x) => x.isClosed), [summaries]);
 
   const closedGrouped = useMemo(() => {
