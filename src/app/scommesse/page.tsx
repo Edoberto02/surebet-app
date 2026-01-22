@@ -203,7 +203,7 @@ function openEditBetModal(bet: Bet) {
     const [{ data: b, error: be }, { data: l, error: le }] = await Promise.all([
       supabase
         .from("bets")
-        .select("id,match_date,match_time,note,created_at")
+        .select("id,match_date,match_time,note,created_at,needs_review")
         .order("match_date", { ascending: false })
         .order("match_time", { ascending: false })
         .order("id", { ascending: false })
@@ -497,6 +497,22 @@ function openEditBetModal(bet: Bet) {
     setMsg("✅ Bet eliminata");
     await loadAll();
   }
+  async function toggleBetReview(bet: Bet) {
+  setMsg("");
+
+  const next = !bet.needs_review;
+
+  const { error } = await supabase
+    .from("bets")
+    .update({ needs_review: next })
+    .eq("id", bet.id);
+
+  if (error) return setMsg(error.message);
+
+  // aggiorno lo stato localmente (senza loadAll, così non scrolla)
+  setBets((prev) => prev.map((b) => (b.id === bet.id ? { ...b, needs_review: next } : b)));
+}
+
   async function saveEditBet() {
   setEditBetErr("");
 
@@ -727,9 +743,22 @@ function openEditBetModal(bet: Bet) {
                 {inProgress.map((bs) => (
                   <div key={bs.bet.id} className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm text-zinc-200">
-                        {bs.bet.match_date} — {(bs.bet.match_time ?? "").slice(0, 5)}
-                      </div>
+                      <div className="flex items-center gap-2">
+  <button
+    type="button"
+    onClick={() => toggleBetReview(bs.bet)}
+    className={`h-3 w-3 rounded-full border ${
+      bs.bet.needs_review
+        ? "border-yellow-500 bg-yellow-400"
+        : "border-zinc-500 bg-transparent hover:border-zinc-300"
+    }`}
+    title={bs.bet.needs_review ? "Segnata per revisione" : "Segna per revisione"}
+  />
+  <div className="text-sm text-zinc-200">
+    {bs.bet.match_date} — {(bs.bet.match_time ?? "").slice(0, 5)}
+  </div>
+</div>
+
 
                       <div className="flex items-center gap-2">
                         <button
