@@ -6,6 +6,8 @@ import { supabase } from "../lib/supabase";
 type Account = { id: string; person_name: string; bookmaker_name: string; balance: number };
 
 type Bet = { id: string; match_date: string; match_time: string; note: string | null; created_at: string; needs_review: boolean };
+type Partner = { id: string; name: string };
+type BetPlayerRow = { bet_id: string; partner: { id: string; name: string } };
 
 
 type BetLeg = {
@@ -169,6 +171,14 @@ function StatusPills({
 export default function ScommessePage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
+
+  // soci
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
+
+  // selezione giocatori per nuova bet
+  const [newPlayers, setNewPlayers] = useState<string[]>([]);
+
   // ===== MODIFICA BET (data/ora) =====
 const [openEditBet, setOpenEditBet] = useState(false);
 const [editBetId, setEditBetId] = useState<string>("");
@@ -211,30 +221,56 @@ function openEditBetModal(bet: Bet) {
     setMsg("");
 
     // 1) bets + legs
-    const [{ data: b, error: be }, { data: l, error: le }] = await Promise.all([
-      supabase
-        .from("bets")
-        .select("id,match_date,match_time,note,created_at,needs_review")
-        .order("match_date", { ascending: false })
-        .order("match_time", { ascending: false })
-        .order("id", { ascending: false })
-        .limit(2000),
-      supabase
-        .from("bet_legs")
-        .select("id,bet_id,account_id,stake,odds,status,created_at")
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .limit(50000),
-    ]);
+    const [
+  { data: b, error: be },
+  { data: l, error: le },
+  { data: p, error: pe },
+  { data: bp, error: bpe },
+] = await Promise.all([
+  supabase
+    .from("bets")
+    .select("id,match_date,match_time,note,created_at,needs_review")
+    .order("match_date", { ascending: false })
+    .order("match_time", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(2000),
 
-    if (be || le) {
-      setMsg((be || le)!.message);
-      setLoading(false);
-      return;
-    }
+  supabase
+    .from("bet_legs")
+    .select("id,bet_id,account_id,stake,odds,status,created_at")
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(50000),
+
+  supabase
+    .from("partners")
+    .select("id,name")
+    .order("name"),
+
+  supabase
+    .from("bet_players")
+    .select("bet_id, partner:partners(id,name)")
+    .limit(50000),
+]);
+
+
+    if (be || le || pe || bpe) {
+  setMsg((be || le || pe || bpe)!.message);
+  setLoading(false);
+  return;
+}
 
     const betsList = (b ?? []) as Bet[];
     const legsList = (l ?? []) as BetLeg[];
+    setPartners((p ?? []) as Partner[]);
+
+const bpClean: BetPlayerRow[] = (bp ?? [])
+  .filter((row: any) => !!row.partner)
+  .map((row: any) => ({ bet_id: row.bet_id, partner: row.partner }));
+
+setBetPlayers(bpClean);
+
+
 
     // 2) accounts con saldo > 0 (per la tendina)
     const { data: posAcc, error: posErr } = await supabase
@@ -369,6 +405,17 @@ function openEditBetModal(bet: Bet) {
     return res;
   }, [bets, legsByBet]);
 
+  const playersByBetId = useMemo(() => {
+  const m = new Map<string, string[]>();
+  for (const row of betPlayers) {
+    const arr = m.get(row.bet_id) ?? [];
+    arr.push(row.partner.name);
+    m.set(row.bet_id, arr);
+  }
+  return m;
+}, [betPlayers]);
+
+
   const inProgress = useMemo(() => {
   const toTs = (b: Bet) => {
     // match_date = "YYYY-MM-DD", match_time = "HH:MM:SS" o "HH:MM"
@@ -456,10 +503,27 @@ function openEditBetModal(bet: Bet) {
 
     const { error: legsErr } = await supabase.from("bet_legs").insert(payload);
     if (legsErr) return setMsg(legsErr.message);
+    // ✅ Inserisco i giocatori della bet (solo per bet nuove, le vecchie restano senza)
+if (newPlayers.length > 0) {
+  const payloadPlayers = newPlayers.map((partner_id) => ({ bet_id, partner_id }));
+  const { error: pErr } = await supabase.from("bet_players").insert(payloadPlayers);
+  if (pErr) return setMsg(pErr.message);
+}
+
+// ✅ Finalizzo: da qui in poi non è più modificabile
+{
+  const { error: lockErr } = await supabase
+    .from("bets")
+    .update({ bettors_finalized: true })
+    .eq("id", bet_id);
+  if (lockErr) return setMsg(lockErr.message);
+}
+
 
     setMsg("✅ Bet salvata");
     setNewDate("");
     setNewTime("");
+    setNewPlayers([]);
     setNewLegs(
       betMode === "single"
         ? [{ account_id: "", stake: "", odds: "", status: "open" }]
@@ -693,6 +757,37 @@ function openEditBetModal(bet: Bet) {
                 />
               </label>
             </div>
+            <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
+  <div className="text-sm font-semibold text-zinc-200">Chi ha giocato la bet (bonus 10%)</div>
+  <div className="mt-1 text-xs text-zinc-400">
+    Se selezioni tutti i soci, il bonus non si applica (ripartizione pro-quota normale).
+  </div>
+
+  <div className="mt-3 flex flex-wrap gap-2">
+    {partners.map((p) => {
+      const active = newPlayers.includes(p.id);
+      return (
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => {
+            setNewPlayers((prev) =>
+              prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+            );
+          }}
+          className={`rounded-xl px-3 py-2 text-xs font-semibold border ${
+            active
+              ? "border-yellow-600 bg-yellow-900/40 text-yellow-200"
+              : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900"
+          }`}
+        >
+          {p.name}
+        </button>
+      );
+    })}
+  </div>
+</div>
+
 
             <div className="mt-6 flex items-center justify-between">
               <h3 className="text-base font-semibold">Legs</h3>
@@ -762,31 +857,39 @@ function openEditBetModal(bet: Bet) {
                 {inProgress.map((bs) => (
                   <div key={bs.bet.id} className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-2">
   <button
     type="button"
     onClick={() => toggleBetReview(bs.bet)}
-    className={`h-3 w-3 rounded-full border ${
+    className={`mt-1 h-3 w-3 rounded-full border ${
       bs.bet.needs_review
         ? "border-yellow-500 bg-yellow-400"
         : "border-zinc-500 bg-transparent hover:border-zinc-300"
     }`}
     title={bs.bet.needs_review ? "Segnata per revisione" : "Segna per revisione"}
   />
-  <div className="text-sm text-zinc-200 flex items-center gap-2">
-  {formatDateIT(bs.bet.match_date)} — {(bs.bet.match_time ?? "").slice(0, 5)}
-  {isTwoHoursPastStart(bs.bet.match_date, bs.bet.match_time) && (
-  <span
-    title="Partita presumibilmente terminata"
-    className="rounded-md bg-emerald-700/80 px-2 py-0.5 text-xs font-semibold text-emerald-100 border border-emerald-600"
-  >
-    Finita
-  </span>
-)}
 
+  <div className="flex flex-col">
+    <div className="text-sm text-zinc-200 flex items-center gap-2">
+      {formatDateIT(bs.bet.match_date)} — {(bs.bet.match_time ?? "").slice(0, 5)}
+      {isTwoHoursPastStart(bs.bet.match_date, bs.bet.match_time) && (
+        <span
+          title="Partita presumibilmente terminata"
+          className="rounded-md bg-emerald-700/80 px-2 py-0.5 text-xs font-semibold text-emerald-100 border border-emerald-600"
+        >
+          Finita
+        </span>
+      )}
+    </div>
+
+    {(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
+      <div className="mt-1 text-xs text-zinc-400">
+        Giocata da: {(playersByBetId.get(bs.bet.id) ?? []).join(", ")}
+      </div>
+    )}
+  </div>
 </div>
 
-</div>
 
 
                       <div className="flex items-center gap-2">
@@ -868,6 +971,12 @@ function openEditBetModal(bet: Bet) {
                                     Elimina
                                   </button>
                                 </div>
+                              
+{(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
+  <div className="mt-2 text-xs text-zinc-400">
+    Giocata da: {(playersByBetId.get(bs.bet.id) ?? []).join(", ")}
+  </div>
+)}
 
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   {bs.legs.map((l, idx) => (
