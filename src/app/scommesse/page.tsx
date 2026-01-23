@@ -8,6 +8,8 @@ type Account = { id: string; person_name: string; bookmaker_name: string; balanc
 type Bet = { id: string; match_date: string; match_time: string; note: string | null; created_at: string; needs_review: boolean };
 type Partner = { id: string; name: string };
 type BetPlayerRow = { bet_id: string; partner: { id: string; name: string } };
+type EquityUnitRow = { partner_id: string; units_minted: number };
+
 
 
 type BetLeg = {
@@ -175,6 +177,7 @@ export default function ScommessePage() {
   // soci
   const [partners, setPartners] = useState<Partner[]>([]);
   const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
+  const [equityUnits, setEquityUnits] = useState<EquityUnitRow[]>([]);
 
   // selezione giocatori per nuova bet
   const [newPlayers, setNewPlayers] = useState<string[]>([]);
@@ -226,6 +229,7 @@ function openEditBetModal(bet: Bet) {
   { data: l, error: le },
   { data: p, error: pe },
   { data: bp, error: bpe },
+  { data: eu, error: eue },
 ] = await Promise.all([
   supabase
     .from("bets")
@@ -242,27 +246,33 @@ function openEditBetModal(bet: Bet) {
     .order("id", { ascending: true })
     .limit(50000),
 
-  supabase
-    .from("partners")
-    .select("id,name")
-    .order("name"),
+  supabase.from("partners").select("id,name").order("name"),
 
   supabase
     .from("bet_players")
     .select("bet_id, partner:partners(id,name)")
     .limit(50000),
+
+  // ✅ units per calcolare le quote dei soci
+  supabase
+    .from("equity_events")
+    .select("partner_id,units_minted")
+    .limit(50000),
 ]);
 
 
-    if (be || le || pe || bpe) {
-  setMsg((be || le || pe || bpe)!.message);
+    if (be || le || pe || bpe || eue) {
+  setMsg((be || le || pe || bpe || eue)!.message);
   setLoading(false);
   return;
 }
 
+
     const betsList = (b ?? []) as Bet[];
     const legsList = (l ?? []) as BetLeg[];
     setPartners((p ?? []) as Partner[]);
+    setEquityUnits((eu ?? []) as EquityUnitRow[]);
+
 
 const bpClean: BetPlayerRow[] = (bp ?? [])
   .filter((row: any) => !!row.partner)
@@ -414,6 +424,35 @@ setBetPlayers(bpClean);
   }
   return m;
 }, [betPlayers]);
+
+const playerIdsByBetId = useMemo(() => {
+  const m = new Map<string, Set<string>>();
+  for (const row of betPlayers) {
+    const set = m.get(row.bet_id) ?? new Set<string>();
+    set.add(row.partner.id);
+    m.set(row.bet_id, set);
+  }
+  return m;
+}, [betPlayers]);
+
+const unitsByPartnerId = useMemo(() => {
+  const m = new Map<string, number>();
+  // inizializza a 0 per tutti i soci attuali
+  for (const p of partners) m.set(p.id, 0);
+
+  for (const r of equityUnits) {
+    m.set(r.partner_id, (m.get(r.partner_id) ?? 0) + Number(r.units_minted ?? 0));
+  }
+  return m;
+}, [equityUnits, partners]);
+
+const totalUnits = useMemo(() => {
+  let s = 0;
+  for (const v of unitsByPartnerId.values()) s += v;
+  return s;
+}, [unitsByPartnerId]);
+
+
 
 
   const inProgress = useMemo(() => {
@@ -656,6 +695,41 @@ if (playersUnique.length > 0) {
     await loadAll();
     requestAnimationFrame(() => window.scrollTo(0, y));
   }
+  function splitProfitWithBonus(profit: number, betId: string) {
+  const out = new Map<string, number>();
+
+  // se non abbiamo soci o units, ritorna vuoto
+  if (partners.length === 0 || totalUnits <= 0) return out;
+
+  // quota base pro-quota
+  for (const p of partners) {
+    const units = unitsByPartnerId.get(p.id) ?? 0;
+    const q = units / totalUnits;
+    out.set(p.name, profit * q);
+  }
+
+  // bonus solo se profitto positivo
+  if (profit <= 0) return out;
+
+  const players = playerIdsByBetId.get(betId) ?? new Set<string>();
+  const k = players.size;
+  const n = partners.length;
+
+  // se nessun player o tutti i soci -> niente bonus
+  if (k === 0 || k === n) return out;
+
+  const bonusTotal = profit * 0.10;
+  const bonusEach = bonusTotal / k;
+  const malusEach = bonusTotal / (n - k);
+
+  for (const p of partners) {
+    const cur = out.get(p.name) ?? 0;
+    if (players.has(p.id)) out.set(p.name, cur + bonusEach);
+    else out.set(p.name, cur - malusEach);
+  }
+
+  return out;
+}
 
 
   function Logo({ accountId }: { accountId: string }) {
@@ -994,9 +1068,20 @@ if (playersUnique.length > 0) {
                                   ))}
                                 </div>
 
-                                <div className="mt-2 text-xs text-zinc-500">
-                                  Stake: {euro(bs.stakeTotal)} — Payout: {euro(bs.payoutTotal)}
-                                </div>
+                                <div className="mt-2 flex items-start justify-between gap-4">
+  <div className="text-xs text-zinc-500">
+    Stake: {euro(bs.stakeTotal)} — Payout: {euro(bs.payoutTotal)}
+  </div>
+
+  <div className="text-xs text-zinc-200 text-right space-y-1">
+    {Array.from(splitProfitWithBonus(bs.profit, bs.bet.id).entries()).map(([name, val]) => (
+      <div key={name} className={`${signClass(val)} font-semibold`}>
+        {name}: {val >= 0 ? "+" : ""}{euro(val)}
+      </div>
+    ))}
+  </div>
+</div>
+
                               </div>
                             ))}
                           </div>
