@@ -577,7 +577,6 @@ if (playersUnique.length > 0) {
 
     setMsg("");
     // ✅ pulisco anche i giocatori (se presenti) per evitare vincoli
-await supabase.from("bet_players").delete().eq("bet_id", betId);
     const { error } = await supabase.rpc("delete_bet_and_revert_safe", { p_bet_id: betId });
     if (error) return setMsg(`❌ Errore eliminazione:\n${error.message}`);
 
