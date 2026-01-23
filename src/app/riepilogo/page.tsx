@@ -53,8 +53,10 @@ function euro(n: number) {
   return v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 }
 function isZero(n: number) {
-  return Math.abs(n) < 1e-9;
+  // consideriamo "zero" qualunque valore inferiore a mezzo centesimo
+  return Math.abs(n) < 0.000005;
 }
+
 function signClass(n: number) {
   if (isZero(n)) return "text-zinc-400";
   return n > 0 ? "text-emerald-300" : "text-red-300";

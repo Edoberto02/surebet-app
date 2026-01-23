@@ -1073,13 +1073,18 @@ if (playersUnique.length > 0) {
     Stake: {euro(bs.stakeTotal)} — Payout: {euro(bs.payoutTotal)}
   </div>
 
-  <div className="text-xs text-zinc-200 text-right space-y-1">
-    {Array.from(splitProfitWithBonus(bs.profit, bs.bet.id).entries()).map(([name, val]) => (
-      <div key={name} className={`${signClass(val)} font-semibold`}>
-        {name}: {val >= 0 ? "+" : ""}{euro(val)}
-      </div>
-    ))}
-  </div>
+  <div className="text-xs text-right space-y-1">
+  {Array.from(splitProfitWithBonus(bs.profit, bs.bet.id).entries()).map(([name, val]) => (
+    <div key={name} className="font-semibold">
+      <span className="text-zinc-100">{name}:</span>{" "}
+      <span className={signClass(val)}>
+        {val >= 0 ? "+" : ""}
+        {euro(val)}
+      </span>
+    </div>
+  ))}
+</div>
+
 </div>
 
                               </div>
