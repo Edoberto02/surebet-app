@@ -504,11 +504,13 @@ setBetPlayers(bpClean);
     const { error: legsErr } = await supabase.from("bet_legs").insert(payload);
     if (legsErr) return setMsg(legsErr.message);
     // ✅ Inserisco i giocatori della bet (solo per bet nuove, le vecchie restano senza)
-if (newPlayers.length > 0) {
-  const payloadPlayers = newPlayers.map((partner_id) => ({ bet_id, partner_id }));
+const playersUnique = Array.from(new Set(newPlayers));
+if (playersUnique.length > 0) {
+  const payloadPlayers = playersUnique.map((partner_id) => ({ bet_id, partner_id }));
   const { error: pErr } = await supabase.from("bet_players").insert(payloadPlayers);
   if (pErr) return setMsg(pErr.message);
 }
+
 
 // ✅ Finalizzo: da qui in poi non è più modificabile
 {
@@ -574,6 +576,8 @@ if (newPlayers.length > 0) {
     if (!ok) return;
 
     setMsg("");
+    // ✅ pulisco anche i giocatori (se presenti) per evitare vincoli
+await supabase.from("bet_players").delete().eq("bet_id", betId);
     const { error } = await supabase.rpc("delete_bet_and_revert_safe", { p_bet_id: betId });
     if (error) return setMsg(`❌ Errore eliminazione:\n${error.message}`);
 
@@ -759,6 +763,13 @@ if (newPlayers.length > 0) {
             </div>
             <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
   <div className="text-sm font-semibold text-zinc-200">Chi ha giocato la bet (bonus 10%)</div>
+  <button
+  type="button"
+  onClick={() => setNewPlayers([])}
+  className="mt-2 rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
+>
+  Pulisci selezione
+</button>
   <div className="mt-1 text-xs text-zinc-400">
     Se selezioni tutti i soci, il bonus non si applica (ripartizione pro-quota normale).
   </div>
