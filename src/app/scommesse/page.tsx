@@ -611,17 +611,17 @@ if (playersUnique.length > 0) {
 
 
   async function deleteBet(betId: string) {
-    const ok = window.confirm("Eliminare questa bet? (ripristina i saldi)");
-    if (!ok) return;
+  const ok = window.confirm("Eliminare questa bet? (ripristina i saldi)");
+  if (!ok) return;
 
-    setMsg("");
-    // ✅ pulisco anche i giocatori (se presenti) per evitare vincoli
-    const { error } = await supabase.rpc("delete_bet_and_revert_safe", { p_bet_id: betId });
-    if (error) return setMsg(`❌ Errore eliminazione:\n${error.message}`);
+  setMsg("");
+  const { error } = await supabase.rpc("delete_bet_and_revert_safe", { p_bet_id: betId });
+  if (error) return setMsg(`❌ Errore eliminazione:\n${error.message}`);
 
-    setMsg("✅ Bet eliminata");
-    await loadAll();
-  }
+  setMsg("✅ Bet eliminata");
+  await loadAll();
+}
+
   async function toggleBetReview(bet: Bet) {
   setMsg("");
 
