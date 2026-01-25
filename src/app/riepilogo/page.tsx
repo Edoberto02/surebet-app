@@ -37,6 +37,18 @@ type PaymentMethodPanelRow = {
   in_transito: number;
   totale: number;
 };
+type PeopleFeePanelRow = {
+  person_id: string;
+  person_name: string;
+  fee_pct: number;
+  fee_payment_method_id: string | null;
+  payment_method_label: string | null;
+  payment_method_balance: number | null;
+  fee_generated: number;
+  fee_withdrawn: number;
+  fee_available: number;
+};
+
 
 type PartnerCashOpRow = {
   id: string;
@@ -97,6 +109,7 @@ export default function RiepilogoPage() {
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodRow[]>([]);
   const [pmPanel, setPmPanel] = useState<PaymentMethodPanelRow[]>([]);
+  const [peopleFeePanel, setPeopleFeePanel] = useState<PeopleFeePanelRow[]>([]);
   const [cashOps, setCashOps] = useState<PartnerCashOpRow[]>([]);
   const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
   const [betAllocs, setBetAllocs] = useState<BetAllocationRow[]>([]);
@@ -110,6 +123,78 @@ export default function RiepilogoPage() {
   const [cashAmount, setCashAmount] = useState<string>("");
   const [cashNote, setCashNote] = useState<string>("");
   const [cashUiErr, setCashUiErr] = useState<string>("");
+  // ===== Nuova persona (bookmaker prestati) =====
+const [newPersonOpen, setNewPersonOpen] = useState(false);
+const [newPersonName, setNewPersonName] = useState("");
+const [newPersonMethod, setNewPersonMethod] = useState("");
+const [newPersonFeePct, setNewPersonFeePct] = useState("0"); // es. 0.05 = 5%
+const [newPersonErr, setNewPersonErr] = useState("");
+
+// ===== Prelievo fee persona =====
+const [openFeeWithdraw, setOpenFeeWithdraw] = useState(false);
+const [feePersonId, setFeePersonId] = useState("");
+const [feeWithdrawAmount, setFeeWithdrawAmount] = useState("");
+const [feeWithdrawNote, setFeeWithdrawNote] = useState("");
+const [feeWithdrawErr, setFeeWithdrawErr] = useState("");
+
+function openFeeWithdrawModal(personId: string) {
+  setFeeWithdrawErr("");
+  setFeePersonId(personId);
+  setFeeWithdrawAmount("");
+  setFeeWithdrawNote("");
+  setOpenFeeWithdraw(true);
+}
+
+async function submitNewPerson() {
+  setNewPersonErr("");
+  setErrorMsg("");
+
+  const name = newPersonName.trim();
+  const label = newPersonMethod.trim();
+  const pct = toNumberInput(newPersonFeePct); // già esiste nel file
+
+  if (!name) return setNewPersonErr("Inserisci il nome");
+  if (!label) return setNewPersonErr("Inserisci il metodo di pagamento");
+  if (!Number.isFinite(pct) || pct < 0 || pct > 0.2) return setNewPersonErr("Fee non valida (usa es. 0.05 per 5% oppure 0)");
+
+  const { error } = await supabase.rpc("create_fee_person", {
+    p_person_name: name,
+    p_payment_label: label,
+    p_fee_pct: pct,
+  });
+  if (error) return setNewPersonErr(error.message);
+
+  setNewPersonOpen(false);
+  setNewPersonName("");
+  setNewPersonMethod("");
+  setNewPersonFeePct("0");
+
+  await loadAll(false);
+}
+
+async function submitFeeWithdraw() {
+  setFeeWithdrawErr("");
+  setErrorMsg("");
+
+  if (!feePersonId) return setFeeWithdrawErr("Persona non valida");
+  const amt = toNumberInput(feeWithdrawAmount);
+  if (!Number.isFinite(amt) || amt <= 0) return setFeeWithdrawErr("Importo non valido (>0)");
+
+  const row = peopleFeePanel.find((x) => x.person_id === feePersonId);
+  const available = Number(row?.fee_available ?? 0);
+  if (amt > available + 1e-9) return setFeeWithdrawErr(`Importo troppo alto. Disponibile ${euro(available)}`);
+
+  const { error } = await supabase.rpc("withdraw_person_fee", {
+    p_person_id: feePersonId,
+    p_amount: amt,
+    p_note: feeWithdrawNote.trim() || null,
+  });
+  if (error) return setFeeWithdrawErr(error.message);
+
+  setOpenFeeWithdraw(false);
+  await loadAll(false);
+}
+
 
   const sinceISO = useMemo(() => {
     const d = new Date();
@@ -137,6 +222,8 @@ export default function RiepilogoPage() {
       { data: ops, error: opsErr },
       { data: bp, error: bpe },
       { data: ba, error: bae },
+      { data: pfp, error: pfpErr },
+
 
     ] = await Promise.all([
       supabase.from("partners").select("id,name").order("name"),
@@ -158,10 +245,13 @@ export default function RiepilogoPage() {
 
       supabase.from("bet_players").select("bet_id, partner:partners(id,name)").limit(50000),
       supabase.from("bet_allocations").select("bet_id,partner_id,amount").limit(50000),
+      supabase.from("v_people_fee_panel").select("*"),
+
 
     ]);
 
-    const err = pe || ee || ce || be || ble || adje || pplErr || pmErr || panelErr || opsErr || bpe || bae;
+    const err = pe || ee || ce || be || ble || adje || pplErr || pmErr || panelErr || opsErr || bpe || bae || pfpErr;
+
 
 
     if (err) {
@@ -190,6 +280,8 @@ export default function RiepilogoPage() {
 
     setBetPlayers(bpClean);
     setBetAllocs((ba ?? []) as BetAllocationRow[]);
+    setPeopleFeePanel((pfp ?? []) as PeopleFeePanelRow[]);
+
 
 
     setLoading(false);
@@ -584,6 +676,64 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
             </div>
           </div>
 
+{/* Persone (bookmaker prestati) */}
+<div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+  <div className="flex items-center justify-between gap-3">
+    <h2 className="text-lg font-semibold">Persone (bookmaker prestati)</h2>
+
+    <button
+      onClick={() => {
+        setNewPersonErr("");
+        setNewPersonOpen(true);
+      }}
+      className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
+    >
+      + Nuova persona
+    </button>
+  </div>
+
+  <div className="mt-4 overflow-auto rounded-xl border border-zinc-800">
+    <table className="min-w-[1100px] w-full border-collapse">
+      <thead className="bg-zinc-900">
+        <tr>
+          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Persona</th>
+          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Fee</th>
+          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Metodo</th>
+          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Generato</th>
+          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Prelevato</th>
+          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Disponibile</th>
+          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Azioni</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {peopleFeePanel.map((r) => (
+          <tr key={r.person_id} className="border-t border-zinc-800">
+            <td className="px-3 py-2 text-sm font-medium text-zinc-100">{r.person_name}</td>
+            <td className="px-3 py-2 text-sm text-zinc-100">{(Number(r.fee_pct ?? 0) * 100).toFixed(2)}%</td>
+            <td className="px-3 py-2 text-sm text-zinc-100">{r.payment_method_label ?? "—"}</td>
+            <td className="px-3 py-2 text-sm text-zinc-100">{euro(Number(r.fee_generated ?? 0))}</td>
+            <td className="px-3 py-2 text-sm text-zinc-100">{euro(Number(r.fee_withdrawn ?? 0))}</td>
+            <td className={`px-3 py-2 text-sm font-semibold ${signClass(Number(r.fee_available ?? 0))}`}>
+              {Number(r.fee_available ?? 0) >= 0 ? "+" : ""}
+              {euro(Number(r.fee_available ?? 0))}
+            </td>
+            <td className="px-3 py-2 text-sm">
+              <button
+                onClick={() => openFeeWithdrawModal(r.person_id)}
+                className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold hover:bg-emerald-600"
+              >
+                Preleva
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>{/* MODAL: Prelievo/Deposito soci */}
+</div>
+
+
           {/* P/L + Registro */}
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
@@ -789,6 +939,124 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
           </div>
         </div>
       )}
+      {newPersonOpen && (
+  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+    <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Nuova persona</h2>
+        <button
+          onClick={() => setNewPersonOpen(false)}
+          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+        >
+          Chiudi
+        </button>
+      </div>
+
+      {newPersonErr && (
+        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+          {newPersonErr}
+        </div>
+      )}
+
+      <div className="mt-4 grid grid-cols-1 gap-3">
+        <label className="text-sm text-zinc-300">
+          Nome persona
+          <input
+            value={newPersonName}
+            onChange={(e) => setNewPersonName(e.target.value)}
+            placeholder="es. Greta"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+        </label>
+
+        <label className="text-sm text-zinc-300">
+          Metodo di pagamento (nome)
+          <input
+            value={newPersonMethod}
+            onChange={(e) => setNewPersonMethod(e.target.value)}
+            placeholder="es. PayPal Greta"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+        </label>
+
+        <label className="text-sm text-zinc-300">
+          Fee % (es. 0.05 = 5%, 0 = nessuna fee)
+          <input
+            value={newPersonFeePct}
+            onChange={(e) => setNewPersonFeePct(e.target.value)}
+            placeholder="0 oppure 0.05"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+        </label>
+
+        <button
+          onClick={submitNewPerson}
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+        >
+          Crea
+        </button>
+
+        <div className="text-xs text-zinc-500">
+          Nota: usa 0.05 per 5%. Se metti 0, la persona sarà senza fee.
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+{openFeeWithdraw && (
+  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+    <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Preleva profitto persona</h2>
+        <button
+          onClick={() => setOpenFeeWithdraw(false)}
+          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+        >
+          Chiudi
+        </button>
+      </div>
+
+      {feeWithdrawErr && (
+        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+          {feeWithdrawErr}
+        </div>
+      )}
+
+      <div className="mt-4 grid grid-cols-1 gap-3">
+        <label className="text-sm text-zinc-300">
+          Importo
+          <input
+            value={feeWithdrawAmount}
+            onChange={(e) => setFeeWithdrawAmount(e.target.value)}
+            placeholder="es. 50"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+          <div className="mt-1 text-xs text-zinc-400">
+            Disponibile:{" "}
+            {euro(Number(peopleFeePanel.find((x) => x.person_id === feePersonId)?.fee_available ?? 0))}
+          </div>
+        </label>
+
+        <label className="text-sm text-zinc-300">
+          Nota (opzionale)
+          <input
+            value={feeWithdrawNote}
+            onChange={(e) => setFeeWithdrawNote(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+        </label>
+
+        <button
+          onClick={submitFeeWithdraw}
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+        >
+          Conferma prelievo
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </main>
   );
 }
