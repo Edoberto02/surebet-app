@@ -610,6 +610,11 @@ if (playersUnique.length > 0) {
     p_bet_id: betId,
   });
   if (allocErr) return setMsg(allocErr.message);
+  const { error: feeErr } = await supabase.rpc("compute_bet_person_fees", {
+  p_bet_id: betId,
+});
+if (feeErr) return setMsg(feeErr.message);
+
 
   // ✅ 2) Refresh completo UNA VOLTA SOLA
   await loadAll();
