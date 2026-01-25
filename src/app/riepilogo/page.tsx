@@ -49,6 +49,8 @@ type PartnerCashOpRow = {
 };
 
 type BetPlayerRow = { bet_id: string; partner: { id: string; name: string } };
+type BetAllocationRow = { bet_id: string; partner_id: string; amount: number };
+
 
 function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
@@ -97,6 +99,8 @@ export default function RiepilogoPage() {
   const [pmPanel, setPmPanel] = useState<PaymentMethodPanelRow[]>([]);
   const [cashOps, setCashOps] = useState<PartnerCashOpRow[]>([]);
   const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
+  const [betAllocs, setBetAllocs] = useState<BetAllocationRow[]>([]);
+
 
   // modal prelievo/deposito
   const [openCash, setOpenCash] = useState(false);
@@ -132,6 +136,8 @@ export default function RiepilogoPage() {
 
       { data: ops, error: opsErr },
       { data: bp, error: bpe },
+      { data: ba, error: bae },
+
     ] = await Promise.all([
       supabase.from("partners").select("id,name").order("name"),
       supabase.from("equity_events").select("id,created_at,partner_id,cash_in,units_minted,note").order("created_at", { ascending: true }),
@@ -151,9 +157,12 @@ export default function RiepilogoPage() {
       supabase.from("partner_cash_ops").select("id,created_at,partner_id,payment_method_id,kind,amount,note").order("created_at", { ascending: false }).limit(5000),
 
       supabase.from("bet_players").select("bet_id, partner:partners(id,name)").limit(50000),
+      supabase.from("bet_allocations").select("bet_id,partner_id,amount").limit(50000),
+
     ]);
 
-    const err = pe || ee || ce || be || ble || adje || pplErr || pmErr || panelErr || opsErr || bpe;
+    const err = pe || ee || ce || be || ble || adje || pplErr || pmErr || panelErr || opsErr || bpe || bae;
+
 
     if (err) {
       setErrorMsg(err.message);
@@ -180,6 +189,8 @@ export default function RiepilogoPage() {
       .map((row: any) => ({ bet_id: row.bet_id, partner: row.partner }));
 
     setBetPlayers(bpClean);
+    setBetAllocs((ba ?? []) as BetAllocationRow[]);
+
 
     setLoading(false);
   }
@@ -301,6 +312,49 @@ export default function RiepilogoPage() {
     }
     return m;
   }, [betLegs]);
+  // Profit per bet (solo bet CHIUSE) → Map<bet_id, profit>
+const profitByBetId = useMemo(() => {
+  const m = new Map<string, number>();
+  for (const b of bets) {
+    const legs = legsByBet.get(b.id) ?? [];
+    if (legs.length === 0) continue;
+
+    const isClosed = legs.every((x) => x.status !== "open");
+    if (!isClosed) continue;
+
+    const stakeTotal = legs.reduce((s, x) => s + Number(x.stake ?? 0), 0);
+    const payoutTotal = legs.reduce((s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0), 0);
+    m.set(b.id, payoutTotal - stakeTotal);
+  }
+  return m;
+}, [bets, legsByBet]);
+
+// Quota per socio → Map<partner_id, quota>
+const quotaByPartnerId = useMemo(() => {
+  const m = new Map<string, number>();
+  for (const r of table) m.set(r.id, Number(r.quota ?? 0));
+  return m;
+}, [table]);
+
+// Bonus/Malus cumulato per socio (rispetto al pro-quota puro)
+const bonusNetByPartnerId = useMemo(() => {
+  const m = new Map<string, number>();
+  for (const p of partners) m.set(p.id, 0);
+
+  for (const a of betAllocs) {
+    const profit = profitByBetId.get(a.bet_id);
+    if (profit === undefined) continue;
+
+    const q = quotaByPartnerId.get(a.partner_id) ?? 0;
+    const base = profit * q;
+
+    const net = Number(a.amount ?? 0) - base;
+    m.set(a.partner_id, (m.get(a.partner_id) ?? 0) + net);
+  }
+
+  return m;
+}, [betAllocs, profitByBetId, quotaByPartnerId, partners]);
+
 
   const betProfitByDay = useMemo(() => {
     const map = new Map<string, number>();
@@ -487,11 +541,17 @@ export default function RiepilogoPage() {
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Quota</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Capitale pro-quota</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno pro-quota</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Bonus/Malus</th>
+<th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno reale</th>
+
                   </tr>
                 </thead>
                 <tbody>
                   {table.map((r) => {
                     const net = Number(cashNetByPartnerId.get(r.id) ?? 0);
+                    const bonusNet = Number(bonusNetByPartnerId.get(r.id) ?? 0);
+const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
+
                     return (
                       <tr key={r.id} className="border-t border-zinc-800">
                         <td className="px-3 py-2 text-sm font-medium text-zinc-100">{r.name}</td>
@@ -506,6 +566,16 @@ export default function RiepilogoPage() {
                           {r.gainProQuota >= 0 ? "+" : ""}
                           {euro(r.gainProQuota)}
                         </td>
+                        <td className={`px-3 py-2 text-sm font-semibold ${signClass(bonusNet)}`}>
+  {bonusNet >= 0 ? "+" : ""}
+  {euro(bonusNet)}
+</td>
+
+<td className={`px-3 py-2 text-sm font-semibold ${signClass(gainReal)}`}>
+  {gainReal >= 0 ? "+" : ""}
+  {euro(gainReal)}
+</td>
+
                       </tr>
                     );
                   })}
