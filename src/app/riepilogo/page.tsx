@@ -62,6 +62,8 @@ type PartnerCashOpRow = {
 
 type BetPlayerRow = { bet_id: string; partner: { id: string; name: string } };
 type BetAllocationRow = { bet_id: string; partner_id: string; amount: number };
+type FeeWithdrawalRow = { id: string; created_at: string; amount: number; note: string | null };
+
 
 
 function euro(n: number) {
@@ -136,6 +138,13 @@ const [feePersonId, setFeePersonId] = useState("");
 const [feeWithdrawAmount, setFeeWithdrawAmount] = useState("");
 const [feeWithdrawNote, setFeeWithdrawNote] = useState("");
 const [feeWithdrawErr, setFeeWithdrawErr] = useState("");
+// ===== Storico prelievi (gear) =====
+const [openFeeHistory, setOpenFeeHistory] = useState(false);
+const [feeHistoryPersonId, setFeeHistoryPersonId] = useState("");
+const [feeHistoryRows, setFeeHistoryRows] = useState<FeeWithdrawalRow[]>([]);
+const [feeHistoryErr, setFeeHistoryErr] = useState("");
+const [feeHistoryLoading, setFeeHistoryLoading] = useState(false);
+
 
 function openFeeWithdrawModal(personId: string) {
   setFeeWithdrawErr("");
@@ -194,6 +203,40 @@ async function submitFeeWithdraw() {
   setOpenFeeWithdraw(false);
   await loadAll(false);
 }
+async function openFeeHistoryModal(personId: string) {
+  setFeeHistoryErr("");
+  setFeeHistoryPersonId(personId);
+  setFeeHistoryRows([]);
+  setOpenFeeHistory(true);
+
+  setFeeHistoryLoading(true);
+  const { data, error } = await supabase
+    .from("person_fee_withdrawals")
+    .select("id,created_at,amount,note")
+    .eq("person_id", personId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  setFeeHistoryLoading(false);
+  if (error) return setFeeHistoryErr(error.message);
+
+  setFeeHistoryRows((data ?? []) as FeeWithdrawalRow[]);
+}
+
+async function cancelFeeWithdrawal(withdrawalId: string) {
+  const ok = window.confirm("Annullare questo prelievo? (ripristina il saldo del metodo)");
+  if (!ok) return;
+
+  const { error } = await supabase.rpc("cancel_person_fee_withdrawal", {
+    p_withdrawal_id: withdrawalId,
+  });
+  if (error) return alert(error.message);
+
+  // ricarico sia tabella principale che storico
+  await loadAll(false);
+  await openFeeHistoryModal(feeHistoryPersonId);
+}
+
 async function deleteLenderPerson(personId: string) {
   const row = peopleFeePanel.find((x) => x.person_id === personId);
   const available = Number(row?.fee_available ?? 0);
@@ -729,7 +772,34 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
             <td className="px-3 py-2 text-sm text-zinc-100">{(Number(r.fee_pct ?? 0) * 100).toFixed(2)}%</td>
             <td className="px-3 py-2 text-sm text-zinc-100">{r.payment_method_label ?? "—"}</td>
             <td className="px-3 py-2 text-sm text-zinc-100">{euro(Number(r.fee_generated ?? 0))}</td>
-            <td className="px-3 py-2 text-sm text-zinc-100">{euro(Number(r.fee_withdrawn ?? 0))}</td>
+            <td className="px-3 py-2 text-sm text-zinc-100">
+  <div className="flex items-center gap-2">
+    <span>{euro(Number(r.fee_withdrawn ?? 0))}</span>
+
+    <button
+      type="button"
+      onClick={() => openFeeHistoryModal(r.person_id)}
+      className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
+
+      title="Storico prelievi"
+    >
+  <svg
+    viewBox="0 0 24 24"
+    className="h-4 w-4"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" />
+    <path d="M19.4 15a7.9 7.9 0 0 0 .1-1l2-1.2-2-3.4-2.3.6a7.7 7.7 0 0 0-1.7-1l-.3-2.3H10.8l-.3 2.3a7.7 7.7 0 0 0-1.7 1L6.5 9.4l-2 3.4L6.5 14a7.9 7.9 0 0 0 .1 1 7.9 7.9 0 0 0-.1 1l-2 1.2 2 3.4 2.3-.6a7.7 7.7 0 0 0 1.7 1l.3 2.3h3.9l.3-2.3a7.7 7.7 0 0 0 1.7-1l2.3.6 2-3.4-2-1.2a7.9 7.9 0 0 0-.1-1z" />
+  </svg>
+</button>
+
+  </div>
+</td>
+
             <td className={`px-3 py-2 text-sm font-semibold ${signClass(Number(r.fee_available ?? 0))}`}>
               {Number(r.fee_available ?? 0) >= 0 ? "+" : ""}
               {euro(Number(r.fee_available ?? 0))}
@@ -1042,58 +1112,62 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
 )}
 {openFeeWithdraw && (
   <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-    <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+    ...
+  </div>
+)}
+
+{openFeeHistory && (
+  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+    <div className="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Preleva profitto persona</h2>
+        <h2 className="text-lg font-semibold">Storico prelievi</h2>
         <button
-          onClick={() => setOpenFeeWithdraw(false)}
+          onClick={() => setOpenFeeHistory(false)}
           className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
         >
           Chiudi
         </button>
       </div>
 
-      {feeWithdrawErr && (
+      {feeHistoryErr && (
         <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          {feeWithdrawErr}
+          {feeHistoryErr}
         </div>
       )}
 
-      <div className="mt-4 grid grid-cols-1 gap-3">
-        <label className="text-sm text-zinc-300">
-          Importo
-          <input
-            value={feeWithdrawAmount}
-            onChange={(e) => setFeeWithdrawAmount(e.target.value)}
-            placeholder="es. 50"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-          <div className="mt-1 text-xs text-zinc-400">
-            Disponibile:{" "}
-            {euro(Number(peopleFeePanel.find((x) => x.person_id === feePersonId)?.fee_available ?? 0))}
-          </div>
-        </label>
+      {feeHistoryLoading ? (
+        <div className="mt-4 text-sm text-zinc-400">Caricamento…</div>
+      ) : feeHistoryRows.length === 0 ? (
+        <div className="mt-4 text-sm text-zinc-500">Nessun prelievo.</div>
+      ) : (
+        <div className="mt-4 space-y-2">
+          {feeHistoryRows.map((w) => (
+            <div key={w.id} className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-zinc-400">
+                  {new Date(w.created_at).toLocaleString("it-IT")}
+                </div>
+                <button
+                  onClick={() => cancelFeeWithdrawal(w.id)}
+                  className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+                >
+                  Annulla
+                </button>
+              </div>
 
-        <label className="text-sm text-zinc-300">
-          Nota (opzionale)
-          <input
-            value={feeWithdrawNote}
-            onChange={(e) => setFeeWithdrawNote(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </label>
-
-        <button
-          onClick={submitFeeWithdraw}
-          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-        >
-          Conferma prelievo
-        </button>
-      </div>
+              <div className="mt-2 text-sm font-semibold text-zinc-100">
+                {euro(Number(w.amount ?? 0))}
+              </div>
+              {w.note && <div className="mt-1 text-xs text-zinc-400">{w.note}</div>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   </div>
 )}
 
-    </main>
+</main>
+
   );
 }
