@@ -1104,9 +1104,58 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
 )}
 {openFeeWithdraw && (
   <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-    ...
+    <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Prelievo profitto persona</h2>
+        <button
+          onClick={() => setOpenFeeWithdraw(false)}
+          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+        >
+          Chiudi
+        </button>
+      </div>
+
+      {feeWithdrawErr && (
+        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+          {feeWithdrawErr}
+        </div>
+      )}
+
+      <div className="mt-4 grid grid-cols-1 gap-3">
+        <label className="text-sm text-zinc-300">
+          Importo
+          <input
+            value={feeWithdrawAmount}
+            onChange={(e) => setFeeWithdrawAmount(e.target.value)}
+            placeholder="es. 50"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+          <div className="mt-1 text-xs text-zinc-400">
+            Disponibile:{" "}
+            {euro(Number(peopleFeePanel.find((x) => x.person_id === feePersonId)?.fee_available ?? 0))}
+          </div>
+        </label>
+
+        <label className="text-sm text-zinc-300">
+          Nota (opzionale)
+          <input
+            value={feeWithdrawNote}
+            onChange={(e) => setFeeWithdrawNote(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+        </label>
+
+        <button
+          onClick={submitFeeWithdraw}
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+        >
+          Conferma prelievo
+        </button>
+      </div>
+    </div>
   </div>
 )}
+
 
 {openFeeHistory && (
   <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
