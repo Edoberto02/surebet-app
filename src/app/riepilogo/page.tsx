@@ -780,22 +780,22 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
       type="button"
       onClick={() => openFeeHistoryModal(r.person_id)}
       className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
-
       title="Storico prelievi"
     >
   <svg
-    viewBox="0 0 24 24"
-    className="h-4 w-4 -translate-y-[0.75px]"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" />
-<path d="M19.4 15.1a8.1 8.1 0 0 0 0-2.2l2-1.2-2-3.4-2.3.7a7.6 7.6 0 0 0-1.9-1.1l-.3-2.4H10.8l-.3 2.4a7.6 7.6 0 0 0-1.9 1.1l-2.3-.7-2 3.4 2 1.2a8.1 8.1 0 0 0 0 2.2l-2 1.2 2 3.4 2.3-.7a7.6 7.6 0 0 0 1.9 1.1l.3 2.4h3.9l.3-2.4a7.6 7.6 0 0 0 1.9-1.1l2.3.7 2-3.4-2-1.2z" />
+  viewBox="0 0 24 24"
+  className="h-4 w-4"
+  fill="none"
+  stroke="currentColor"
+  strokeWidth="2"
+  strokeLinecap="round"
+  strokeLinejoin="round"
+>
+  <path d="M22 19l-6.1-6.1a5.5 5.5 0 0 1-6.8-6.8L12 9l3-3-2.9-2.9a5.5 5.5 0 0 1 6.8 6.8L25 16" />
+  <path d="M16 14l-2 2" />
+  <path d="M7 21a2 2 0 0 1-2-2l8.5-8.5 2 2L7 21z" />
+</svg>
 
-  </svg>
 </button>
 
   </div>
