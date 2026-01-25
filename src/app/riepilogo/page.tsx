@@ -1168,6 +1168,5 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
 )}
 
 </main>
-
   );
 }
