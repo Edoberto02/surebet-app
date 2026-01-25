@@ -47,6 +47,7 @@ type PartnerCashOpRow = {
   amount: number;
   note: string | null;
 };
+type BetPlayerRow = { bet_id: string; partner: { id: string; name: string } };
 
 function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
@@ -100,6 +101,7 @@ const [npCashIn, setNpCashIn] = useState("");
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodRow[]>([]);
   const [pmPanel, setPmPanel] = useState<PaymentMethodPanelRow[]>([]);
   const [cashOps, setCashOps] = useState<PartnerCashOpRow[]>([]);
+const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
 
   // modal prelievo/deposito
   const [openCash, setOpenCash] = useState(false);
@@ -134,6 +136,7 @@ const [npCashIn, setNpCashIn] = useState("");
       { data: panel, error: panelErr },
 
       { data: ops, error: opsErr },
+      { data: bp, error: bpe },
     ] = await Promise.all([
       supabase.from("partners").select("id,name").order("name"),
       supabase.from("equity_events").select("id,created_at,partner_id,cash_in,units_minted,note").order("created_at", { ascending: true }),
@@ -151,9 +154,12 @@ const [npCashIn, setNpCashIn] = useState("");
       supabase.from("v_payment_methods_panel").select("person_name,method,balance,in_transito,totale"),
 
       supabase.from("partner_cash_ops").select("id,created_at,partner_id,payment_method_id,kind,amount,note").order("created_at", { ascending: false }).limit(5000),
+      supabase.from("bet_players").select("bet_id, partner:partners(id,name)").limit(50000),
+
     ]);
 
-    const err = pe || ee || ce || be || ble || adje || pplErr || pmErr || panelErr || opsErr;
+    const err = pe || ee || ce || be || ble || adje || pplErr || pmErr || panelErr || opsErr || bpe;
+
     if (err) {
       setErrorMsg(err.message);
       setLoading(false);
@@ -173,6 +179,12 @@ const [npCashIn, setNpCashIn] = useState("");
     setPmPanel((panel ?? []) as PaymentMethodPanelRow[]);
 
     setCashOps((ops ?? []) as PartnerCashOpRow[]);
+    const bpClean: BetPlayerRow[] = (bp ?? [])
+  .filter((row: any) => !!row.partner)
+  .map((row: any) => ({ bet_id: row.bet_id, partner: row.partner }));
+
+setBetPlayers(bpClean);
+
 
     setLoading(false);
   }
