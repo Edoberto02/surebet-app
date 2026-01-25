@@ -784,17 +784,16 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
     >
   <svg
   viewBox="0 0 24 24"
-  className="h-4 w-4"
+  className="h-4 w-4 -translate-y-[0.5px]"
   fill="none"
   stroke="currentColor"
   strokeWidth="2"
   strokeLinecap="round"
   strokeLinejoin="round"
 >
-  <path d="M22 19l-6.1-6.1a5.5 5.5 0 0 1-6.8-6.8L12 9l3-3-2.9-2.9a5.5 5.5 0 0 1 6.8 6.8L25 16" />
-  <path d="M16 14l-2 2" />
-  <path d="M7 21a2 2 0 0 1-2-2l8.5-8.5 2 2L7 21z" />
+  <path d="M14.7 6.3a5 5 0 0 0-6.6 6.6l-4.6 4.6a1.5 1.5 0 0 0 2.1 2.1l4.6-4.6a5 5 0 0 0 6.6-6.6l-2.6 2.6-2.1-2.1 2.6-2.6z" />
 </svg>
+
 
 </button>
 
