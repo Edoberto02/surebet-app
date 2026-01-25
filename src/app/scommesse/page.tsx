@@ -603,10 +603,21 @@ if (playersUnique.length > 0) {
   // Se è chiusa, allora faccio il refresh completo UNA VOLTA SOLA
   // e mantengo la posizione scroll (così non torna su)
   if (isNowClosed) {
-    const y = window.scrollY;
-    await loadAll();
-    requestAnimationFrame(() => window.scrollTo(0, y));
-  }
+  const y = window.scrollY;
+
+  // ✅ 1) Salva la ripartizione nel DB (bonus o pro-quota)
+  const { error: allocErr } = await supabase.rpc("compute_bet_allocations", {
+    p_bet_id: betId,
+  });
+  if (allocErr) return setMsg(allocErr.message);
+
+  // ✅ 2) Refresh completo UNA VOLTA SOLA
+  await loadAll();
+
+  // ✅ 3) Ripristino scroll
+  requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
 }
 
 
