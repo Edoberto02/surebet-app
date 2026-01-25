@@ -779,33 +779,18 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
     <button
       type="button"
       onClick={() => openFeeHistoryModal(r.person_id)}
-      className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
+      className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
       title="Storico prelievi"
     >
-  <button
-  type="button"
-  onClick={() => openFeeHistoryModal(r.person_id)}
-  className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
-  title="Storico prelievi"
->
-  <svg
-    viewBox="0 0 24 24"
-    className="h-4 w-4"
-    fill="currentColor"
-  >
-    <circle cx="12" cy="5" r="1.6" />
-    <circle cx="12" cy="12" r="1.6" />
-    <circle cx="12" cy="19" r="1.6" />
-  </svg>
-</button>
-
-
-
-
-</button>
-
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+        <circle cx="12" cy="5" r="1.6" />
+        <circle cx="12" cy="12" r="1.6" />
+        <circle cx="12" cy="19" r="1.6" />
+      </svg>
+    </button>
   </div>
 </td>
+
 
             <td className={`px-3 py-2 text-sm font-semibold ${signClass(Number(r.fee_available ?? 0))}`}>
               {Number(r.fee_available ?? 0) >= 0 ? "+" : ""}
