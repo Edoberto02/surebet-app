@@ -194,6 +194,22 @@ async function submitFeeWithdraw() {
   setOpenFeeWithdraw(false);
   await loadAll(false);
 }
+async function deleteLenderPerson(personId: string) {
+  const row = peopleFeePanel.find((x) => x.person_id === personId);
+  const available = Number(row?.fee_available ?? 0);
+
+  if (Math.abs(available) > 0.009) {
+    return alert("Puoi eliminare solo se Disponibile è 0€");
+  }
+
+  const ok = window.confirm("Eliminare questa persona? (rimuove anche accounts e metodi pagamento)");
+  if (!ok) return;
+
+  const { error } = await supabase.rpc("delete_lender_person_safe", { p_person_id: personId });
+  if (error) return alert(error.message);
+
+  await loadAll(false);
+}
 
 
   const sinceISO = useMemo(() => {
@@ -719,18 +735,39 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
               {euro(Number(r.fee_available ?? 0))}
             </td>
             <td className="px-3 py-2 text-sm">
-              <button
-                onClick={() => openFeeWithdrawModal(r.person_id)}
-                className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold hover:bg-emerald-600"
-              >
-                Preleva
-              </button>
-            </td>
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => openFeeWithdrawModal(r.person_id)}
+      className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold hover:bg-emerald-600"
+    >
+      Preleva
+    </button>
+
+    <button
+      onClick={() => deleteLenderPerson(r.person_id)}
+      disabled={Math.abs(Number(r.fee_available ?? 0)) > 0.009}
+      className={[
+        "rounded-xl px-3 py-2 text-xs font-semibold",
+        Math.abs(Number(r.fee_available ?? 0)) > 0.009
+          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+          : "bg-red-800/70 text-red-100 hover:bg-red-700",
+      ].join(" ")}
+      title={
+        Math.abs(Number(r.fee_available ?? 0)) > 0.009
+          ? "Disponibile deve essere 0€"
+          : "Elimina persona"
+      }
+    >
+      Elimina
+    </button>
+  </div>
+</td>
+
           </tr>
         ))}
       </tbody>
     </table>
-  </div>{/* MODAL: Prelievo/Deposito soci */}
+  </div>
 </div>
 
 
