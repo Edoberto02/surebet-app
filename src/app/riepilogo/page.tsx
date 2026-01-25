@@ -782,17 +782,26 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
       className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
       title="Storico prelievi"
     >
-  <svg
-  viewBox="0 0 24 24"
-  className="h-4 w-4 -translate-y-[0.5px]"
-  fill="none"
-  stroke="currentColor"
-  strokeWidth="2"
-  strokeLinecap="round"
-  strokeLinejoin="round"
+  <button
+  type="button"
+  onClick={() => openFeeHistoryModal(r.person_id)}
+  title="Storico prelievi"
+  className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
 >
-  <path d="M14.7 6.3a5 5 0 0 0-6.6 6.6l-4.6 4.6a1.5 1.5 0 0 0 2.1 2.1l4.6-4.6a5 5 0 0 0 6.6-6.6l-2.6 2.6-2.1-2.1 2.6-2.6z" />
-</svg>
+  <svg
+    viewBox="0 0 24 24"
+    className="h-4 w-4 text-zinc-200"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.75"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.6 1.6 0 0 0 .3-1l2-1.2-2-3.4-2.3.6a7.2 7.2 0 0 0-1.6-.9L15 6h-6l-.4 2.1a7.2 7.2 0 0 0-1.6.9l-2.3-.6-2 3.4 2 1.2a1.6 1.6 0 0 0 0 2l-2 1.2 2 3.4 2.3-.6a7.2 7.2 0 0 0 1.6.9L9 18h6l.4-2.1a7.2 7.2 0 0 0 1.6-.9l2.3.6 2-3.4-2-1.2z" />
+  </svg>
+</button>
+
 
 
 </button>
