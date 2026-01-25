@@ -53,10 +53,8 @@ function euro(n: number) {
   return v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 }
 function isZero(n: number) {
-  // consideriamo "zero" qualunque valore inferiore a mezzo centesimo
-  return Math.abs(n) < 0.000005;
+  return Math.abs(n) < 1e-9;
 }
-
 function signClass(n: number) {
   if (isZero(n)) return "text-zinc-400";
   return n > 0 ? "text-emerald-300" : "text-red-300";
@@ -83,6 +81,12 @@ function toNumberInput(s: string) {
 export default function RiepilogoPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  // ✅ Modal nuovo socio (semplice)
+const [openAddPartner, setOpenAddPartner] = useState(false);
+const [npName, setNpName] = useState("");
+const [npPayLabel, setNpPayLabel] = useState("");
+const [npCashIn, setNpCashIn] = useState("");
+
 
   const [capital, setCapital] = useState<number>(0);
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -172,6 +176,32 @@ export default function RiepilogoPage() {
 
     setLoading(false);
   }
+async function submitNewPartnerSimple() {
+  setErrorMsg("");
+
+  const name = npName.trim();
+  const pay = npPayLabel.trim();
+  const cash = Number(npCashIn.replace(",", "."));
+
+  if (!name) return setErrorMsg("Inserisci il nome del socio");
+  if (!pay) return setErrorMsg("Inserisci il metodo di pagamento (es. PayPal Marco)");
+  if (!Number.isFinite(cash) || cash <= 0) return setErrorMsg("Conferimento non valido (>0)");
+
+  const { error } = await supabase.rpc("add_partner_simple", {
+    p_partner_name: name,
+    p_cash_in: cash,
+    p_payment_label: pay,
+  });
+
+  if (error) return setErrorMsg(error.message);
+
+  setOpenAddPartner(false);
+  setNpName("");
+  setNpPayLabel("");
+  setNpCashIn("");
+  await loadAll(false);
+}
+
 
   useEffect(() => {
     loadAll(true);
@@ -429,6 +459,13 @@ export default function RiepilogoPage() {
           <button onClick={openCashModal} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700">
             Prelievo/Deposito soci
           </button>
+          <button
+  onClick={() => setOpenAddPartner(true)}
+  className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
+>
+  + Nuovo socio
+</button>
+
           <button onClick={() => loadAll(true)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
             Aggiorna
           </button>
@@ -699,6 +736,71 @@ export default function RiepilogoPage() {
           </div>
         </div>
       )}
+      {openAddPartner && (
+  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+    <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Nuovo socio</h2>
+        <button
+          onClick={() => setOpenAddPartner(false)}
+          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+        >
+          Chiudi
+        </button>
+      </div>
+
+      {errorMsg && (
+        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+          Errore: {errorMsg}
+        </div>
+      )}
+
+      <div className="mt-4 grid grid-cols-1 gap-3">
+        <label className="text-sm text-zinc-300">
+          Nome socio
+          <input
+            value={npName}
+            onChange={(e) => setNpName(e.target.value)}
+            placeholder="es. Marco"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+        </label>
+
+        <label className="text-sm text-zinc-300">
+          Metodo di pagamento (creato e valorizzato)
+          <input
+            value={npPayLabel}
+            onChange={(e) => setNpPayLabel(e.target.value)}
+            placeholder="es. PayPal Marco"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+        </label>
+
+        <label className="text-sm text-zinc-300">
+          Conferimento €
+          <input
+            value={npCashIn}
+            onChange={(e) => setNpCashIn(e.target.value)}
+            placeholder="es. 1000"
+            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          />
+        </label>
+
+        <button
+          onClick={submitNewPartnerSimple}
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+        >
+          Crea socio
+        </button>
+
+        <div className="text-xs text-zinc-500">
+          Verranno creati automaticamente: persona nei saldi, tutti gli account bookmaker a saldo 0 e il metodo di pagamento indicato con saldo = conferimento.
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
     </main>
   );
 }
