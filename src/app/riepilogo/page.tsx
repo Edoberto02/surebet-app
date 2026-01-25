@@ -336,6 +336,66 @@ async function submitNewPartnerSimple() {
     }
     return m;
   }, [betLegs]);
+  const playerIdsByBetId = useMemo(() => {
+  const m = new Map<string, Set<string>>();
+  for (const row of betPlayers) {
+    const s = m.get(row.bet_id) ?? new Set<string>();
+    s.add(row.partner.id);
+    m.set(row.bet_id, s);
+  }
+  return m;
+}, [betPlayers]);
+
+const betProfitByPartnerWithBonus = useMemo(() => {
+  const res = new Map<string, number>();
+  for (const p of partners) res.set(p.id, 0);
+
+  // quota base (units / totalUnits)
+  const quotaById = new Map<string, number>();
+  for (const p of partners) {
+    const v = byPartner.get(p.id) ?? { cashIn: 0, units: 0 };
+    quotaById.set(p.id, totalUnits > 0 ? v.units / totalUnits : 0);
+  }
+
+  // calcolo su bet CHIUSE
+  for (const b of bets) {
+    const legs = legsByBet.get(b.id) ?? [];
+    if (legs.length === 0) continue;
+    if (!legs.every((x) => x.status !== "open")) continue;
+
+    const stake = legs.reduce((s, x) => s + Number(x.stake ?? 0), 0);
+    const payout = legs.reduce(
+      (s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0),
+      0
+    );
+    const profit = payout - stake;
+
+    // base pro-quota
+    for (const p of partners) {
+      res.set(p.id, (res.get(p.id) ?? 0) + profit * (quotaById.get(p.id) ?? 0));
+    }
+
+    // bonus solo se profitto > 0
+    if (profit <= 0) continue;
+
+    const players = playerIdsByBetId.get(b.id) ?? new Set<string>();
+    const k = players.size;
+    const n = partners.length;
+    if (k === 0 || k === n) continue;
+
+    const bonus = profit * 0.1;
+    const plus = bonus / k;
+    const minus = bonus / (n - k);
+
+    for (const p of partners) {
+      const cur = res.get(p.id) ?? 0;
+      res.set(p.id, players.has(p.id) ? cur + plus : cur - minus);
+    }
+  }
+
+  return res;
+}, [bets, legsByBet, partners, byPartner, totalUnits, playerIdsByBetId]);
+
 
   const betProfitByDay = useMemo(() => {
     const map = new Map<string, number>();
@@ -529,6 +589,8 @@ async function submitNewPartnerSimple() {
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Quota</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Capitale pro-quota</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno pro-quota</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Profitto bet (bonus)</th>
+
                   </tr>
                 </thead>
                 <tbody>
@@ -548,6 +610,11 @@ async function submitNewPartnerSimple() {
                           {r.gainProQuota >= 0 ? "+" : ""}
                           {euro(r.gainProQuota)}
                         </td>
+                        <td className={`px-3 py-2 text-sm font-semibold ${signClass(betProfitByPartnerWithBonus.get(r.id) ?? 0)}`}>
+  {(betProfitByPartnerWithBonus.get(r.id) ?? 0) >= 0 ? "+" : ""}
+  {euro(betProfitByPartnerWithBonus.get(r.id) ?? 0)}
+</td>
+
                       </tr>
                     );
                   })}
