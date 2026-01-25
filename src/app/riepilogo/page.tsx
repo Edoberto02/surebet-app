@@ -47,6 +47,7 @@ type PartnerCashOpRow = {
   amount: number;
   note: string | null;
 };
+
 type BetPlayerRow = { bet_id: string; partner: { id: string; name: string } };
 
 function euro(n: number) {
@@ -82,12 +83,6 @@ function toNumberInput(s: string) {
 export default function RiepilogoPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
-  // ✅ Modal nuovo socio (semplice)
-const [openAddPartner, setOpenAddPartner] = useState(false);
-const [npName, setNpName] = useState("");
-const [npPayLabel, setNpPayLabel] = useState("");
-const [npCashIn, setNpCashIn] = useState("");
-
 
   const [capital, setCapital] = useState<number>(0);
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -101,7 +96,7 @@ const [npCashIn, setNpCashIn] = useState("");
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodRow[]>([]);
   const [pmPanel, setPmPanel] = useState<PaymentMethodPanelRow[]>([]);
   const [cashOps, setCashOps] = useState<PartnerCashOpRow[]>([]);
-const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
+  const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
 
   // modal prelievo/deposito
   const [openCash, setOpenCash] = useState(false);
@@ -154,8 +149,8 @@ const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
       supabase.from("v_payment_methods_panel").select("person_name,method,balance,in_transito,totale"),
 
       supabase.from("partner_cash_ops").select("id,created_at,partner_id,payment_method_id,kind,amount,note").order("created_at", { ascending: false }).limit(5000),
-      supabase.from("bet_players").select("bet_id, partner:partners(id,name)").limit(50000),
 
+      supabase.from("bet_players").select("bet_id, partner:partners(id,name)").limit(50000),
     ]);
 
     const err = pe || ee || ce || be || ble || adje || pplErr || pmErr || panelErr || opsErr || bpe;
@@ -179,41 +174,15 @@ const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
     setPmPanel((panel ?? []) as PaymentMethodPanelRow[]);
 
     setCashOps((ops ?? []) as PartnerCashOpRow[]);
+
     const bpClean: BetPlayerRow[] = (bp ?? [])
-  .filter((row: any) => !!row.partner)
-  .map((row: any) => ({ bet_id: row.bet_id, partner: row.partner }));
+      .filter((row: any) => !!row.partner)
+      .map((row: any) => ({ bet_id: row.bet_id, partner: row.partner }));
 
-setBetPlayers(bpClean);
-
+    setBetPlayers(bpClean);
 
     setLoading(false);
   }
-async function submitNewPartnerSimple() {
-  setErrorMsg("");
-
-  const name = npName.trim();
-  const pay = npPayLabel.trim();
-  const cash = Number(npCashIn.replace(",", "."));
-
-  if (!name) return setErrorMsg("Inserisci il nome del socio");
-  if (!pay) return setErrorMsg("Inserisci il metodo di pagamento (es. PayPal Marco)");
-  if (!Number.isFinite(cash) || cash <= 0) return setErrorMsg("Conferimento non valido (>0)");
-
-  const { error } = await supabase.rpc("add_partner_simple", {
-    p_partner_name: name,
-    p_cash_in: cash,
-    p_payment_label: pay,
-  });
-
-  if (error) return setErrorMsg(error.message);
-
-  setOpenAddPartner(false);
-  setNpName("");
-  setNpPayLabel("");
-  setNpCashIn("");
-  await loadAll(false);
-}
-
 
   useEffect(() => {
     loadAll(true);
@@ -266,14 +235,12 @@ async function submitNewPartnerSimple() {
     return m;
   }, [table]);
 
-  // mapping people id -> name
   const personNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const p of people) m.set(p.id, p.name);
     return m;
   }, [people]);
 
-  // metodi disponibili per socio selezionato
   const paymentMethodsForSelectedPartner = useMemo(() => {
     const partner = partners.find((x) => x.id === cashPartnerId);
     if (!partner) return [];
@@ -307,7 +274,6 @@ async function submitNewPartnerSimple() {
     return pmBalanceByPersonAndMethod.get(`${selectedPartnerName}||${selectedPmLabel}`) ?? { balance: 0, totale: 0, in_transito: 0 };
   }, [pmBalanceByPersonAndMethod, selectedPartnerName, selectedPmLabel]);
 
-  // ===== Colonna Prelievi/Depositi (netto) =====
   const cashNetByPartnerId = useMemo(() => {
     const m = new Map<string, number>();
     for (const p of partners) m.set(p.id, 0);
@@ -318,7 +284,6 @@ async function submitNewPartnerSimple() {
     return m;
   }, [cashOps, partners]);
 
-  // ===== PROFIT BET (chiuse) =====
   const legsByBet = useMemo(() => {
     const m = new Map<string, BetLeg[]>();
     for (const l of betLegs) {
@@ -336,66 +301,6 @@ async function submitNewPartnerSimple() {
     }
     return m;
   }, [betLegs]);
-  const playerIdsByBetId = useMemo(() => {
-  const m = new Map<string, Set<string>>();
-  for (const row of betPlayers) {
-    const s = m.get(row.bet_id) ?? new Set<string>();
-    s.add(row.partner.id);
-    m.set(row.bet_id, s);
-  }
-  return m;
-}, [betPlayers]);
-
-const betProfitByPartnerWithBonus = useMemo(() => {
-  const res = new Map<string, number>();
-  for (const p of partners) res.set(p.id, 0);
-
-  // quota base (units / totalUnits)
-  const quotaById = new Map<string, number>();
-  for (const p of partners) {
-    const v = byPartner.get(p.id) ?? { cashIn: 0, units: 0 };
-    quotaById.set(p.id, totalUnits > 0 ? v.units / totalUnits : 0);
-  }
-
-  // calcolo su bet CHIUSE
-  for (const b of bets) {
-    const legs = legsByBet.get(b.id) ?? [];
-    if (legs.length === 0) continue;
-    if (!legs.every((x) => x.status !== "open")) continue;
-
-    const stake = legs.reduce((s, x) => s + Number(x.stake ?? 0), 0);
-    const payout = legs.reduce(
-      (s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0),
-      0
-    );
-    const profit = payout - stake;
-
-    // base pro-quota
-    for (const p of partners) {
-      res.set(p.id, (res.get(p.id) ?? 0) + profit * (quotaById.get(p.id) ?? 0));
-    }
-
-    // bonus solo se profitto > 0
-    if (profit <= 0) continue;
-
-    const players = playerIdsByBetId.get(b.id) ?? new Set<string>();
-    const k = players.size;
-    const n = partners.length;
-    if (k === 0 || k === n) continue;
-
-    const bonus = profit * 0.1;
-    const plus = bonus / k;
-    const minus = bonus / (n - k);
-
-    for (const p of partners) {
-      const cur = res.get(p.id) ?? 0;
-      res.set(p.id, players.has(p.id) ? cur + plus : cur - minus);
-    }
-  }
-
-  return res;
-}, [bets, legsByBet, partners, byPartner, totalUnits, playerIdsByBetId]);
-
 
   const betProfitByDay = useMemo(() => {
     const map = new Map<string, number>();
@@ -416,7 +321,6 @@ const betProfitByPartnerWithBonus = useMemo(() => {
     return map;
   }, [bets, legsByBet]);
 
-  // ===== RETTIFICHE (escludendo baseline) =====
   const adjByDay = useMemo(() => {
     const map = new Map<string, number>();
     for (const a of adjustments) {
@@ -427,7 +331,6 @@ const betProfitByPartnerWithBonus = useMemo(() => {
     return map;
   }, [adjustments]);
 
-  // ===== MONTHLY P/L =====
   const monthlyPL = useMemo(() => {
     const daySet = new Set<string>();
     for (const d of betProfitByDay.keys()) daySet.add(d);
@@ -497,13 +400,9 @@ const betProfitByPartnerWithBonus = useMemo(() => {
     });
 
     if (error) {
-      if ((error.message || "").toLowerCase().includes("fondi insufficienti")) {
-        setCashUiErr("Fondi insufficienti sul metodo di pagamento selezionato");
-      } else if ((error.message || "").toLowerCase().includes("max")) {
-        setCashUiErr(error.message);
-      } else {
-        setCashUiErr(error.message);
-      }
+      const msg = (error.message || "").toLowerCase();
+      if (msg.includes("fondi insufficienti")) setCashUiErr("Fondi insufficienti sul metodo di pagamento selezionato");
+      else setCashUiErr(error.message);
       return;
     }
 
@@ -528,17 +427,16 @@ const betProfitByPartnerWithBonus = useMemo(() => {
         <h1 className="text-2xl font-semibold">Riepilogo</h1>
 
         <div className="flex items-center gap-2">
-          <button onClick={openCashModal} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700">
+          <button
+            onClick={openCashModal}
+            className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
+          >
             Prelievo/Deposito soci
           </button>
           <button
-  onClick={() => setOpenAddPartner(true)}
-  className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
->
-  + Nuovo socio
-</button>
-
-          <button onClick={() => loadAll(true)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+            onClick={() => loadAll(true)}
+            className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+          >
             Aggiorna
           </button>
         </div>
@@ -589,8 +487,6 @@ const betProfitByPartnerWithBonus = useMemo(() => {
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Quota</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Capitale pro-quota</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno pro-quota</th>
-                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Profitto bet (bonus)</th>
-
                   </tr>
                 </thead>
                 <tbody>
@@ -610,11 +506,6 @@ const betProfitByPartnerWithBonus = useMemo(() => {
                           {r.gainProQuota >= 0 ? "+" : ""}
                           {euro(r.gainProQuota)}
                         </td>
-                        <td className={`px-3 py-2 text-sm font-semibold ${signClass(betProfitByPartnerWithBonus.get(r.id) ?? 0)}`}>
-  {(betProfitByPartnerWithBonus.get(r.id) ?? 0) >= 0 ? "+" : ""}
-  {euro(betProfitByPartnerWithBonus.get(r.id) ?? 0)}
-</td>
-
                       </tr>
                     );
                   })}
@@ -646,6 +537,7 @@ const betProfitByPartnerWithBonus = useMemo(() => {
                           </span>
                         </div>
                       </summary>
+
                       <div className="px-4 pb-4 space-y-2">
                         {m.days.map((d) => (
                           <details key={d.dayISO} className="rounded-xl border border-zinc-800 bg-zinc-950/40">
@@ -683,15 +575,22 @@ const betProfitByPartnerWithBonus = useMemo(() => {
 
                     return (
                       <div key={op.id} className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <div className="text-xs text-zinc-400">{new Date(op.created_at).toLocaleString("it-IT")}</div>
-                          <button onClick={() => deleteCashOp(op.id)} className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700">
+                          <button
+                            onClick={() => deleteCashOp(op.id)}
+                            className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+                          >
                             Elimina
                           </button>
                         </div>
+
                         <div className="mt-2 text-sm text-zinc-200">{partnerName}</div>
                         <div className="text-xs text-zinc-400">{pmLabel}</div>
-                        <div className={`mt-1 text-sm font-semibold ${signClass(signed)}`}>{signed >= 0 ? "+" : ""}{euro(signed)}</div>
+                        <div className={`mt-1 text-sm font-semibold ${signClass(signed)}`}>
+                          {signed >= 0 ? "+" : ""}
+                          {euro(signed)}
+                        </div>
                         {op.note && <div className="mt-1 text-xs text-zinc-400">{op.note}</div>}
                       </div>
                     );
@@ -703,13 +602,16 @@ const betProfitByPartnerWithBonus = useMemo(() => {
         </>
       )}
 
-      {/* MODAL */}
+      {/* MODAL: Prelievo/Deposito soci */}
       {openCash && (
         <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
           <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Prelievo/Deposito soci</h2>
-              <button onClick={() => setOpenCash(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+              <button
+                onClick={() => setOpenCash(false)}
+                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+              >
                 Chiudi
               </button>
             </div>
@@ -735,7 +637,9 @@ const betProfitByPartnerWithBonus = useMemo(() => {
                 >
                   <option value="">Seleziona…</option>
                   {partners.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -768,21 +672,18 @@ const betProfitByPartnerWithBonus = useMemo(() => {
                   style={{ colorScheme: "dark" }}
                 >
                   <option value="">Seleziona…</option>
-{paymentMethodsForSelectedPartner
-  .filter((pm) => pm.label !== "__ESTERNO__")
-  .map((pm) => {
-    const bal =
-      pmBalanceByPersonAndMethod.get(
-        `${selectedPartnerName}||${pm.label}`
-      )?.balance ?? 0;
+                  {paymentMethodsForSelectedPartner
+                    .filter((pm) => pm.label !== "__ESTERNO__")
+                    .map((pm) => {
+                      const bal =
+                        pmBalanceByPersonAndMethod.get(`${selectedPartnerName}||${pm.label}`)?.balance ?? 0;
 
-    return (
-      <option key={pm.id} value={pm.id}>
-        {pm.label} (saldo {euro(bal)})
-      </option>
-    );
-  })}
-
+                      return (
+                        <option key={pm.id} value={pm.id}>
+                          {pm.label} (saldo {euro(bal)})
+                        </option>
+                      );
+                    })}
                 </select>
               </label>
 
@@ -808,78 +709,16 @@ const betProfitByPartnerWithBonus = useMemo(() => {
                 />
               </label>
 
-              <button onClick={submitCashOp} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+              <button
+                onClick={submitCashOp}
+                className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+              >
                 Conferma
               </button>
             </div>
           </div>
         </div>
       )}
-      {openAddPartner && (
-  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-    <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Nuovo socio</h2>
-        <button
-          onClick={() => setOpenAddPartner(false)}
-          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-        >
-          Chiudi
-        </button>
-      </div>
-
-      {errorMsg && (
-        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          Errore: {errorMsg}
-        </div>
-      )}
-
-      <div className="mt-4 grid grid-cols-1 gap-3">
-        <label className="text-sm text-zinc-300">
-          Nome socio
-          <input
-            value={npName}
-            onChange={(e) => setNpName(e.target.value)}
-            placeholder="es. Marco"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </label>
-
-        <label className="text-sm text-zinc-300">
-          Metodo di pagamento (creato e valorizzato)
-          <input
-            value={npPayLabel}
-            onChange={(e) => setNpPayLabel(e.target.value)}
-            placeholder="es. PayPal Marco"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </label>
-
-        <label className="text-sm text-zinc-300">
-          Conferimento €
-          <input
-            value={npCashIn}
-            onChange={(e) => setNpCashIn(e.target.value)}
-            placeholder="es. 1000"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </label>
-
-        <button
-          onClick={submitNewPartnerSimple}
-          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-        >
-          Crea socio
-        </button>
-
-        <div className="text-xs text-zinc-500">
-          Verranno creati automaticamente: persona nei saldi, tutti gli account bookmaker a saldo 0 e il metodo di pagamento indicato con saldo = conferimento.
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
     </main>
   );
 }
