@@ -734,6 +734,33 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
               </table>
             </div>
           </div>
+{/* Guadagno reale soci (pro-quota + bonus/malus) */}
+<div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
+  <div className="text-sm font-semibold text-zinc-200">Guadagno reale (soci)</div>
+  <div className="mt-1 text-xs text-zinc-500">
+    Guadagno reale = Guadagno pro-quota + Bonus/Malus
+  </div>
+
+  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+    {table.map((r) => {
+      const bonusNet = Number(bonusNetByPartnerId.get(r.id) ?? 0);
+      const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
+
+      return (
+        <div key={r.id} className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-3">
+          <div className="text-xs text-zinc-400">{r.name}</div>
+          <div className={`mt-1 text-base font-semibold ${signClass(gainReal)}`}>
+            {gainReal >= 0 ? "+" : ""}
+            {euro(gainReal)}
+          </div>
+          <div className="mt-1 text-xs text-zinc-500">
+            pro-quota {r.gainProQuota >= 0 ? "+" : ""}{euro(Number(r.gainProQuota ?? 0))} · bonus {bonusNet >= 0 ? "+" : ""}{euro(bonusNet)}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</div>
 
 {/* Persone (bookmaker prestati) */}
 <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
