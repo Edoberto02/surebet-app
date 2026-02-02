@@ -683,7 +683,7 @@ const bonusNetByPartnerId = useMemo(() => {
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
             <h2 className="text-lg font-semibold">Soci</h2>
             <div className="mt-4 overflow-auto rounded-xl border border-zinc-800">
-              <table className="min-w-[1200px] w-full border-collapse">
+              <table className="min-w-[1200px] w-full border-collapse table-fixed">
                 <thead className="bg-zinc-900">
                   <tr>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Socio</th>
@@ -699,6 +699,18 @@ const bonusNetByPartnerId = useMemo(() => {
 
                   </tr>
                 </thead>
+                <colgroup>
+  <col className="w-[140px]" />  {/* Socio */}
+  <col className="w-[150px]" />  {/* Capitale iniziale */}
+  <col className="w-[130px]" />  {/* Prelievi/Depositi */}
+  <col className="w-[90px]" />   {/* Quota */}
+  <col className="w-[140px]" />  {/* Capitale pro-quota */}
+  <col className="w-[140px]" />  {/* Capitale reale */}
+  <col className="w-[140px]" />  {/* Guadagno pro-quota */}
+  <col className="w-[120px]" />  {/* Bonus/Malus */}
+  <col className="w-[140px]" />  {/* Guadagno reale */}
+</colgroup>
+
                 <tbody>
                   {table.map((r) => {
                     const net = Number(cashNetByPartnerId.get(r.id) ?? 0);
