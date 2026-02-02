@@ -691,17 +691,21 @@ const bonusNetByPartnerId = useMemo(() => {
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Prelievi/Depositi</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Quota</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Capitale pro-quota</th>
-                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno pro-quota</th>
-                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Bonus/Malus</th>
+<th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Capitale reale</th>
+<th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno pro-quota</th>
+<th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Bonus/Malus</th>
 <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno reale</th>
+
 
                   </tr>
                 </thead>
                 <tbody>
                   {table.map((r) => {
                     const net = Number(cashNetByPartnerId.get(r.id) ?? 0);
-                    const bonusNet = Number(bonusNetByPartnerId.get(r.id) ?? 0);
+const bonusNet = Number(bonusNetByPartnerId.get(r.id) ?? 0);
+const capitalReal = Number(r.capitalProQuota ?? 0) + bonusNet;
 const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
+
 
                     return (
                       <tr key={r.id} className="border-t border-zinc-800">
@@ -713,10 +717,12 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
                         </td>
                         <td className="px-3 py-2 text-sm text-zinc-100">{(r.quota * 100).toFixed(2)}%</td>
                         <td className="px-3 py-2 text-sm text-zinc-100">{euro(r.capitalProQuota)}</td>
-                        <td className={`px-3 py-2 text-sm font-semibold ${signClass(r.gainProQuota)}`}>
-                          {r.gainProQuota >= 0 ? "+" : ""}
-                          {euro(r.gainProQuota)}
-                        </td>
+<td className="px-3 py-2 text-sm text-zinc-100">{euro(capitalReal)}</td>
+
+<td className={`px-3 py-2 text-sm font-semibold ${signClass(r.gainProQuota)}`}>
+  {r.gainProQuota >= 0 ? "+" : ""}
+  {euro(r.gainProQuota)}
+</td>
                         <td className={`px-3 py-2 text-sm font-semibold ${signClass(bonusNet)}`}>
   {bonusNet >= 0 ? "+" : ""}
   {euro(bonusNet)}
