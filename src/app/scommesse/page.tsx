@@ -5,12 +5,24 @@ import { supabase } from "../lib/supabase";
 
 type Account = { id: string; person_name: string; bookmaker_name: string; balance: number };
 
-type Bet = { id: string; match_date: string; match_time: string; note: string | null; created_at: string; needs_review: boolean };
-type Partner = { id: string; name: string };
+type Bet = {
+  id: string;
+  match_date: string;
+  match_time: string;
+  note: string | null;
+  created_at: string;
+  needs_review: boolean;
+  bettors_finalized?: boolean | null;
+  closed_at?: string | null;
+};
+
+type Partner = { id: string; name: string; is_active?: boolean | null; left_at?: string | null; joined_at?: string | null };
+
 type BetPlayerRow = { bet_id: string; partner: { id: string; name: string } };
 type EquityUnitRow = { partner_id: string; units_minted: number };
 
-
+// ✅ Allocazioni DB (verità unica)
+type BetAllocRow = { bet_id: string; partner_id: string; amount: number };
 
 type BetLeg = {
   id: string;
@@ -32,8 +44,10 @@ type BetSummary = {
   isClosed: boolean;
   stakeTotal: number;
   payoutTotal: number;
-  profit: number;
+  profitGross: number;
+  profitNetFromAllocs: number; // ✅ somma allocazioni (fee già tolte, bonus già dentro)
 };
+
 function formatDateIT(dateISO: string) {
   const [y, m, d] = dateISO.split("-");
   return `${d}-${m}-${y}`;
@@ -43,18 +57,22 @@ function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 }
+
 function toNumber(s: string) {
   return Number(String(s).replace(",", "."));
 }
+
 function signClass(n: number) {
   if (Math.abs(n) < 1e-9) return "text-zinc-400";
   return n > 0 ? "text-emerald-300" : "text-red-300";
 }
+
 function monthLabel(monthStartISO: string) {
   const d = new Date(monthStartISO + "T00:00:00");
   const txt = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(d);
   return txt.charAt(0).toUpperCase() + txt.slice(1);
 }
+
 function isTwoHoursPastStart(match_date: string, match_time: string) {
   const t = (match_time ?? "00:00").slice(0, 5);
   const start = new Date(`${match_date}T${t}:00`).getTime();
@@ -144,8 +162,7 @@ function StatusPills({
   onSet: (s: "open" | "win" | "loss") => void;
 }) {
   const base = "rounded-lg px-3 py-1 text-xs font-semibold border border-zinc-700";
-  const openCls =
-    status === "open" ? "bg-zinc-800 text-zinc-100" : "bg-zinc-950 text-zinc-300 hover:bg-zinc-900";
+  const openCls = status === "open" ? "bg-zinc-800 text-zinc-100" : "bg-zinc-950 text-zinc-300 hover:bg-zinc-900";
   const winCls =
     status === "win"
       ? "bg-emerald-700/80 text-emerald-100 border-emerald-600"
@@ -174,42 +191,43 @@ export default function ScommessePage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
-  // soci
-  const [partners, setPartners] = useState<Partner[]>([]);
+  // ✅ partners: carico TUTTI per mostrare storico (anche se qualcuno esce)
+  const [partnersAll, setPartnersAll] = useState<Partner[]>([]);
+  const partnersActive = useMemo(() => partnersAll.filter((p) => p.is_active !== false), [partnersAll]);
+
   const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
   const [equityUnits, setEquityUnits] = useState<EquityUnitRow[]>([]);
+  const [betAllocs, setBetAllocs] = useState<BetAllocRow[]>([]);
 
-  // selezione giocatori per nuova bet
+  // selezione giocatori per nuova bet (solo soci attivi)
   const [newPlayers, setNewPlayers] = useState<string[]>([]);
 
   // ===== MODIFICA BET (data/ora) =====
-const [openEditBet, setOpenEditBet] = useState(false);
-const [editBetId, setEditBetId] = useState<string>("");
-const [editBetDate, setEditBetDate] = useState<string>("");
-const [editBetTime, setEditBetTime] = useState<string>("");
-const [editBetErr, setEditBetErr] = useState<string>("");
-
+  const [openEditBet, setOpenEditBet] = useState(false);
+  const [editBetId, setEditBetId] = useState<string>("");
+  const [editBetDate, setEditBetDate] = useState<string>("");
+  const [editBetTime, setEditBetTime] = useState<string>("");
+  const [editBetErr, setEditBetErr] = useState<string>("");
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
   const [legs, setLegs] = useState<BetLeg[]>([]);
-    // ✅ MODAL modifica leg
+
+  // ✅ MODAL modifica leg
   const [openEdit, setOpenEdit] = useState(false);
   const [editLegId, setEditLegId] = useState<string>("");
   const [editAccountId, setEditAccountId] = useState<string>("");
   const [editStake, setEditStake] = useState<string>("");
   const [editOdds, setEditOdds] = useState<string>("");
   const [editErr, setEditErr] = useState<string>("");
-  
-function openEditBetModal(bet: Bet) {
-  setEditBetErr("");
-  setEditBetId(bet.id);
-  setEditBetDate(bet.match_date ?? "");
-  setEditBetTime((bet.match_time ?? "").slice(0, 5));
-  setOpenEditBet(true);
-}
 
-
+  function openEditBetModal(bet: Bet) {
+    setEditBetErr("");
+    setEditBetId(bet.id);
+    setEditBetDate(bet.match_date ?? "");
+    setEditBetTime((bet.match_time ?? "").slice(0, 5));
+    setOpenEditBet(true);
+  }
 
   const [betMode, setBetMode] = useState<"single" | "surebet">("surebet");
   const [newDate, setNewDate] = useState("");
@@ -223,64 +241,57 @@ function openEditBetModal(bet: Bet) {
     setLoading(true);
     setMsg("");
 
-    // 1) bets + legs
     const [
-  { data: b, error: be },
-  { data: l, error: le },
-  { data: p, error: pe },
-  { data: bp, error: bpe },
-  { data: eu, error: eue },
-] = await Promise.all([
-  supabase
-    .from("bets")
-    .select("id,match_date,match_time,note,created_at,needs_review")
-    .order("match_date", { ascending: false })
-    .order("match_time", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(2000),
+      { data: b, error: be },
+      { data: l, error: le },
+      { data: p, error: pe },
+      { data: bp, error: bpe },
+      { data: eu, error: eue },
+      { data: ba, error: bae },
+    ] = await Promise.all([
+      supabase
+        .from("bets")
+        .select("id,match_date,match_time,note,created_at,needs_review,bettors_finalized,closed_at")
+        .order("match_date", { ascending: false })
+        .order("match_time", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(2000),
 
-  supabase
-    .from("bet_legs")
-    .select("id,bet_id,account_id,stake,odds,status,created_at")
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true })
-    .limit(50000),
+      supabase
+        .from("bet_legs")
+        .select("id,bet_id,account_id,stake,odds,status,created_at")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .limit(50000),
 
-  supabase.from("partners").select("id,name").order("name"),
+      // ✅ tutti i soci per storico (anche usciti)
+      supabase.from("partners").select("id,name,is_active,left_at,joined_at").order("name"),
 
-  supabase
-    .from("bet_players")
-    .select("bet_id, partner:partners(id,name)")
-    .limit(50000),
+      supabase.from("bet_players").select("bet_id, partner:partners(id,name)").limit(50000),
 
-  // ✅ units per calcolare le quote dei soci
-  supabase
-    .from("equity_events")
-    .select("partner_id,units_minted")
-    .limit(50000),
-]);
+      supabase.from("equity_events").select("partner_id,units_minted").limit(50000),
 
+      // ✅ allocazioni DB per mostrare profitto netto e split corretto
+      supabase.from("bet_allocations").select("bet_id,partner_id,amount").limit(50000),
+    ]);
 
-    if (be || le || pe || bpe || eue) {
-  setMsg((be || le || pe || bpe || eue)!.message);
-  setLoading(false);
-  return;
-}
-
+    if (be || le || pe || bpe || eue || bae) {
+      setMsg((be || le || pe || bpe || eue || bae)!.message);
+      setLoading(false);
+      return;
+    }
 
     const betsList = (b ?? []) as Bet[];
     const legsList = (l ?? []) as BetLeg[];
-    setPartners((p ?? []) as Partner[]);
+    setPartnersAll((p ?? []) as Partner[]);
     setEquityUnits((eu ?? []) as EquityUnitRow[]);
 
+    const bpClean: BetPlayerRow[] = (bp ?? [])
+      .filter((row: any) => !!row.partner)
+      .map((row: any) => ({ bet_id: row.bet_id, partner: row.partner }));
+    setBetPlayers(bpClean);
 
-const bpClean: BetPlayerRow[] = (bp ?? [])
-  .filter((row: any) => !!row.partner)
-  .map((row: any) => ({ bet_id: row.bet_id, partner: row.partner }));
-
-setBetPlayers(bpClean);
-
-
+    setBetAllocs((ba ?? []) as BetAllocRow[]);
 
     // 2) accounts con saldo > 0 (per la tendina)
     const { data: posAcc, error: posErr } = await supabase
@@ -311,7 +322,6 @@ setBetPlayers(bpClean);
       usedAcc = (used ?? []) as Account[];
     }
 
-    // 4) unione + dedup
     const map = new Map<string, Account>();
     for (const a of (posAcc ?? []) as Account[]) map.set(a.id, a);
     for (const a of usedAcc) map.set(a.id, a);
@@ -325,14 +335,11 @@ setBetPlayers(bpClean);
   useEffect(() => {
     loadAll();
   }, []);
-  useEffect(() => {
-  const t = setInterval(() => {
-    // re-render leggero per aggiornare la ✅ senza chiamare il DB
-    setMsg((m) => m);
-  }, 60000);
-  return () => clearInterval(t);
-}, []);
 
+  useEffect(() => {
+    const t = setInterval(() => setMsg((m) => m), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (betMode === "single") {
@@ -345,7 +352,6 @@ setBetPlayers(bpClean);
     }
   }, [betMode]);
 
-  // ✅ mapping per nomi + loghi
   const accountMeta = useMemo(() => {
     const m = new Map<string, { label: string; slug: string }>();
     for (const a of accounts) {
@@ -357,7 +363,6 @@ setBetPlayers(bpClean);
     return m;
   }, [accounts]);
 
-  // ✅ Tendina: SOLO saldo > 0
   const accountOptions: Option[] = useMemo(() => {
     return accounts
       .filter((a) => Number(a.balance ?? 0) > 0)
@@ -367,7 +372,7 @@ setBetPlayers(bpClean);
       }))
       .sort((x, y) => x.label.localeCompare(y.label));
   }, [accounts]);
-    // ✅ Tendina MODIFICA: tutti gli account (anche saldo 0)
+
   const allAccountOptions: Option[] = useMemo(() => {
     return accounts
       .map((a) => ({
@@ -376,7 +381,6 @@ setBetPlayers(bpClean);
       }))
       .sort((x, y) => x.label.localeCompare(y.label));
   }, [accounts]);
-
 
   const legsByBet = useMemo(() => {
     const m = new Map<string, BetLeg[]>();
@@ -396,6 +400,30 @@ setBetPlayers(bpClean);
     return m;
   }, [legs]);
 
+  const allocByBetId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of betAllocs) {
+      m.set(a.bet_id, (m.get(a.bet_id) ?? 0) + Number(a.amount ?? 0));
+    }
+    return m;
+  }, [betAllocs]);
+
+  const allocSplitByBetId = useMemo(() => {
+    const m = new Map<string, Map<string, number>>();
+    for (const a of betAllocs) {
+      const inner = m.get(a.bet_id) ?? new Map<string, number>();
+      inner.set(a.partner_id, (inner.get(a.partner_id) ?? 0) + Number(a.amount ?? 0));
+      m.set(a.bet_id, inner);
+    }
+    return m;
+  }, [betAllocs]);
+
+  const partnerNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of partnersAll) m.set(p.id, p.name);
+    return m;
+  }, [partnersAll]);
+
   const summaries: BetSummary[] = useMemo(() => {
     const res: BetSummary[] = [];
     for (const b of bets) {
@@ -404,68 +432,60 @@ setBetPlayers(bpClean);
 
       const isClosed = bl.every((x) => x.status !== "open");
       const stakeTotal = bl.reduce((s, x) => s + Number(x.stake ?? 0), 0);
-      const payoutTotal = bl.reduce(
-        (s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0),
-        0
-      );
-      const profit = payoutTotal - stakeTotal;
+      const payoutTotal = bl.reduce((s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0), 0);
+      const profitGross = payoutTotal - stakeTotal;
 
-      res.push({ bet: b, legs: bl, isClosed, stakeTotal, payoutTotal, profit });
+      const profitNetFromAllocs = isClosed ? Number(allocByBetId.get(b.id) ?? 0) : 0;
+
+      res.push({ bet: b, legs: bl, isClosed, stakeTotal, payoutTotal, profitGross, profitNetFromAllocs });
     }
     return res;
-  }, [bets, legsByBet]);
+  }, [bets, legsByBet, allocByBetId]);
 
   const playersByBetId = useMemo(() => {
-  const m = new Map<string, string[]>();
-  for (const row of betPlayers) {
-    const arr = m.get(row.bet_id) ?? [];
-    arr.push(row.partner.name);
-    m.set(row.bet_id, arr);
-  }
-  return m;
-}, [betPlayers]);
+    const m = new Map<string, string[]>();
+    for (const row of betPlayers) {
+      const arr = m.get(row.bet_id) ?? [];
+      arr.push(row.partner.name);
+      m.set(row.bet_id, arr);
+    }
+    return m;
+  }, [betPlayers]);
 
-const playerIdsByBetId = useMemo(() => {
-  const m = new Map<string, Set<string>>();
-  for (const row of betPlayers) {
-    const set = m.get(row.bet_id) ?? new Set<string>();
-    set.add(row.partner.id);
-    m.set(row.bet_id, set);
-  }
-  return m;
-}, [betPlayers]);
+  const playerIdsByBetId = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const row of betPlayers) {
+      const set = m.get(row.bet_id) ?? new Set<string>();
+      set.add(row.partner.id);
+      m.set(row.bet_id, set);
+    }
+    return m;
+  }, [betPlayers]);
 
-const unitsByPartnerId = useMemo(() => {
-  const m = new Map<string, number>();
-  // inizializza a 0 per tutti i soci attuali
-  for (const p of partners) m.set(p.id, 0);
+  const unitsByPartnerId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of partnersActive) m.set(p.id, 0);
+    for (const r of equityUnits) {
+      if (!m.has(r.partner_id)) continue; // solo attivi
+      m.set(r.partner_id, (m.get(r.partner_id) ?? 0) + Number(r.units_minted ?? 0));
+    }
+    return m;
+  }, [equityUnits, partnersActive]);
 
-  for (const r of equityUnits) {
-    m.set(r.partner_id, (m.get(r.partner_id) ?? 0) + Number(r.units_minted ?? 0));
-  }
-  return m;
-}, [equityUnits, partners]);
-
-const totalUnits = useMemo(() => {
-  let s = 0;
-  for (const v of unitsByPartnerId.values()) s += v;
-  return s;
-}, [unitsByPartnerId]);
-
-
-
+  const totalUnits = useMemo(() => {
+    let s = 0;
+    for (const v of unitsByPartnerId.values()) s += v;
+    return s;
+  }, [unitsByPartnerId]);
 
   const inProgress = useMemo(() => {
-  const toTs = (b: Bet) => {
-    // match_date = "YYYY-MM-DD", match_time = "HH:MM:SS" o "HH:MM"
-    const t = (b.match_time ?? "00:00").slice(0, 5);
-    return new Date(`${b.match_date}T${t}:00`).getTime();
-  };
+    const toTs = (b: Bet) => {
+      const t = (b.match_time ?? "00:00").slice(0, 5);
+      return new Date(`${b.match_date}T${t}:00`).getTime();
+    };
 
-  return summaries
-    .filter((x) => !x.isClosed)
-    .sort((a, b) => toTs(a.bet) - toTs(b.bet)); // ✅ più vicina sopra
-}, [summaries]);
+    return summaries.filter((x) => !x.isClosed).sort((a, b) => toTs(a.bet) - toTs(b.bet));
+  }, [summaries]);
 
   const closed = useMemo(() => summaries.filter((x) => x.isClosed), [summaries]);
 
@@ -476,11 +496,11 @@ const totalUnits = useMemo(() => {
       const monthStart = day.slice(0, 7) + "-01";
       if (!monthMap.has(monthStart)) monthMap.set(monthStart, { monthProfit: 0, days: new Map() });
       const m = monthMap.get(monthStart)!;
-      m.monthProfit += bs.profit;
+      m.monthProfit += bs.profitNetFromAllocs;
 
       if (!m.days.has(day)) m.days.set(day, { dayProfit: 0, bets: [] });
       const d = m.days.get(day)!;
-      d.dayProfit += bs.profit;
+      d.dayProfit += bs.profitNetFromAllocs;
       d.bets.push(bs);
     }
     const months = Array.from(monthMap.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
@@ -497,9 +517,11 @@ const totalUnits = useMemo(() => {
   function addNewLeg() {
     setNewLegs((prev) => [...prev, { account_id: "", stake: "", odds: "", status: "open" }]);
   }
+
   function updateNewLeg(i: number, patch: Partial<LegDraft>) {
     setNewLegs((prev) => prev.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   }
+
   function removeNewLeg(i: number) {
     setNewLegs((prev) => {
       const next = prev.length <= 1 ? prev : prev.filter((_, idx) => idx !== i);
@@ -526,7 +548,7 @@ const totalUnits = useMemo(() => {
     const { data: betData, error: betErr } = await supabase
       .from("bets")
       .insert([{ match_date: newDate, match_time: newTime }])
-      .select("id")
+      .select("id,created_at")
       .single();
     if (betErr) return setMsg(betErr.message);
 
@@ -542,24 +564,26 @@ const totalUnits = useMemo(() => {
 
     const { error: legsErr } = await supabase.from("bet_legs").insert(payload);
     if (legsErr) return setMsg(legsErr.message);
-    // ✅ Inserisco i giocatori della bet (solo per bet nuove, le vecchie restano senza)
-const playersUnique = Array.from(new Set(newPlayers));
-if (playersUnique.length > 0) {
-  const payloadPlayers = playersUnique.map((partner_id) => ({ bet_id, partner_id }));
-  const { error: pErr } = await supabase.from("bet_players").insert(payloadPlayers);
-  if (pErr) return setMsg(pErr.message);
-}
 
+    // inserisco giocatori selezionati (solo tra soci attivi)
+    const playersUnique = Array.from(new Set(newPlayers)).filter((id) => partnersActive.some((p) => p.id === id));
+    if (playersUnique.length > 0) {
+      const payloadPlayers = playersUnique.map((partner_id) => ({ bet_id, partner_id }));
+      const { error: pErr } = await supabase.from("bet_players").insert(payloadPlayers);
+      if (pErr) return setMsg(pErr.message);
+    }
 
-// ✅ Finalizzo: da qui in poi non è più modificabile
-{
-  const { error: lockErr } = await supabase
-    .from("bets")
-    .update({ bettors_finalized: true })
-    .eq("id", bet_id);
-  if (lockErr) return setMsg(lockErr.message);
-}
+    // Finalizzo: non più modificabile
+    {
+      const { error: lockErr } = await supabase.from("bets").update({ bettors_finalized: true }).eq("id", bet_id);
+      if (lockErr) return setMsg(lockErr.message);
+    }
 
+    // ✅ Snapshot soci+quote per questa bet (regola 1A: chi entra dopo NON partecipa)
+    {
+      const { error: snapErr } = await supabase.rpc("snapshot_bet_partner_shares", { p_bet_id: bet_id });
+      if (snapErr) return setMsg(snapErr.message);
+    }
 
     setMsg("✅ Bet salvata");
     setNewDate("");
@@ -578,105 +602,79 @@ if (playersUnique.length > 0) {
   }
 
   async function setLegStatus(legId: string, status: "open" | "win" | "loss") {
-  setMsg("");
+    setMsg("");
 
-  // Trovo la leg corrente (per capire a quale bet appartiene)
-  const current = legs.find((x) => x.id === legId);
-  if (!current) return;
+    const current = legs.find((x) => x.id === legId);
+    if (!current) return;
 
-  const betId = current.bet_id;
+    const betId = current.bet_id;
 
-  // Aggiorno su Supabase
-  const { error } = await supabase.from("bet_legs").update({ status }).eq("id", legId);
-  if (error) return setMsg(error.message);
+    const { error } = await supabase.from("bet_legs").update({ status }).eq("id", legId);
+    if (error) return setMsg(error.message);
 
-  // Aggiorno subito lo stato in UI (senza refresh totale)
-  setLegs((prev) => prev.map((x) => (x.id === legId ? { ...x, status } : x)));
+    setLegs((prev) => prev.map((x) => (x.id === legId ? { ...x, status } : x)));
 
-  // Capisco se ORA la bet è chiusa (cioè nessuna leg è più open)
-  const nextLegsForBet = legs
-    .filter((x) => x.bet_id === betId)
-    .map((x) => (x.id === legId ? { ...x, status } : x));
+    const nextLegsForBet = legs.filter((x) => x.bet_id === betId).map((x) => (x.id === legId ? { ...x, status } : x));
+    const isNowClosed = nextLegsForBet.every((x) => x.status !== "open");
 
-  const isNowClosed = nextLegsForBet.every((x) => x.status !== "open");
+    if (isNowClosed) {
+      const y = window.scrollY;
 
-  // Se è chiusa, allora faccio il refresh completo UNA VOLTA SOLA
-  // e mantengo la posizione scroll (così non torna su)
-  if (isNowClosed) {
-  const y = window.scrollY;
+      const { error: closeErr } = await supabase.rpc("close_bet", { p_bet_id: betId });
+      if (closeErr) return setMsg(closeErr.message);
 
-  // ✅ 1) Salva la ripartizione nel DB (bonus o pro-quota)
-  const { error: allocErr } = await supabase.rpc("compute_bet_allocations", {
-    p_bet_id: betId,
-  });
-  if (allocErr) return setMsg(allocErr.message);
-  const { error: feeErr } = await supabase.rpc("compute_bet_person_fees", {
-  p_bet_id: betId,
-});
-if (feeErr) return setMsg(feeErr.message);
+      // ✅ fee prestatori prima (profit>0 => fee; profit<=0 => fee=0)
+      const { error: feeErr } = await supabase.rpc("compute_bet_person_fees", { p_bet_id: betId });
+      if (feeErr) return setMsg(feeErr.message);
 
+      // ✅ allocazioni definitive (profit NETTO fee, bonus 10% corretto)
+      const { error: allocErr } = await supabase.rpc("compute_bet_allocations", { p_bet_id: betId });
+      if (allocErr) return setMsg(allocErr.message);
 
-  // ✅ 2) Refresh completo UNA VOLTA SOLA
-  await loadAll();
-
-  // ✅ 3) Ripristino scroll
-  requestAnimationFrame(() => window.scrollTo(0, y));
-}
-
-}
-
+      await loadAll();
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+  }
 
   async function deleteBet(betId: string) {
-  const ok = window.confirm("Eliminare questa bet? (ripristina i saldi)");
-  if (!ok) return;
+    const ok = window.confirm("Eliminare questa bet? (ripristina i saldi)");
+    if (!ok) return;
 
-  setMsg("");
-  const { error } = await supabase.rpc("delete_bet_and_revert_safe", { p_bet_id: betId });
-  if (error) return setMsg(`❌ Errore eliminazione:\n${error.message}`);
+    setMsg("");
+    const { error } = await supabase.rpc("delete_bet_and_revert_safe", { p_bet_id: betId });
+    if (error) return setMsg(`❌ Errore eliminazione:\n${error.message}`);
 
-  setMsg("✅ Bet eliminata");
-  await loadAll();
-}
+    setMsg("✅ Bet eliminata");
+    await loadAll();
+  }
 
   async function toggleBetReview(bet: Bet) {
-  setMsg("");
+    setMsg("");
+    const next = !bet.needs_review;
 
-  const next = !bet.needs_review;
+    const { error } = await supabase.from("bets").update({ needs_review: next }).eq("id", bet.id);
+    if (error) return setMsg(error.message);
 
-  const { error } = await supabase
-    .from("bets")
-    .update({ needs_review: next })
-    .eq("id", bet.id);
-
-  if (error) return setMsg(error.message);
-
-  // aggiorno lo stato localmente (senza loadAll, così non scrolla)
-  setBets((prev) => prev.map((b) => (b.id === bet.id ? { ...b, needs_review: next } : b)));
-}
+    setBets((prev) => prev.map((b) => (b.id === bet.id ? { ...b, needs_review: next } : b)));
+  }
 
   async function saveEditBet() {
-  setEditBetErr("");
+    setEditBetErr("");
+    if (!editBetId) return setEditBetErr("Bet non valida");
+    if (!editBetDate) return setEditBetErr("Inserisci la data");
+    if (!editBetTime) return setEditBetErr("Inserisci l'ora");
 
-  if (!editBetId) return setEditBetErr("Bet non valida");
-  if (!editBetDate) return setEditBetErr("Inserisci la data");
-  if (!editBetTime) return setEditBetErr("Inserisci l'ora");
+    const y = window.scrollY;
 
-  const y = window.scrollY;
+    const { error } = await supabase.from("bets").update({ match_date: editBetDate, match_time: editBetTime }).eq("id", editBetId);
+    if (error) return setEditBetErr(error.message);
 
-  const { error } = await supabase
-    .from("bets")
-    .update({ match_date: editBetDate, match_time: editBetTime })
-    .eq("id", editBetId);
+    setOpenEditBet(false);
+    await loadAll();
+    requestAnimationFrame(() => window.scrollTo(0, y));
+  }
 
-  if (error) return setEditBetErr(error.message);
-
-  setOpenEditBet(false);
-  await loadAll();
-  requestAnimationFrame(() => window.scrollTo(0, y));
-}
-
-  
-    function openEditLeg(leg: BetLeg) {
+  function openEditLeg(leg: BetLeg) {
     setEditErr("");
     setEditLegId(leg.id);
     setEditAccountId(leg.account_id);
@@ -687,7 +685,6 @@ if (feeErr) return setMsg(feeErr.message);
 
   async function saveEditLeg() {
     setEditErr("");
-
     const stake = toNumber(editStake);
     const odds = toNumber(editOdds);
 
@@ -704,49 +701,12 @@ if (feeErr) return setMsg(feeErr.message);
       p_new_stake: stake,
       p_new_odds: odds,
     });
-
     if (error) return setEditErr(error.message);
 
     setOpenEdit(false);
     await loadAll();
     requestAnimationFrame(() => window.scrollTo(0, y));
   }
-  function splitProfitWithBonus(profit: number, betId: string) {
-  const out = new Map<string, number>();
-
-  // se non abbiamo soci o units, ritorna vuoto
-  if (partners.length === 0 || totalUnits <= 0) return out;
-
-  // quota base pro-quota
-  for (const p of partners) {
-    const units = unitsByPartnerId.get(p.id) ?? 0;
-    const q = units / totalUnits;
-    out.set(p.name, profit * q);
-  }
-
-  // bonus solo se profitto positivo
-  if (profit <= 0) return out;
-
-  const players = playerIdsByBetId.get(betId) ?? new Set<string>();
-  const k = players.size;
-  const n = partners.length;
-
-  // se nessun player o tutti i soci -> niente bonus
-  if (k === 0 || k === n) return out;
-
-  const bonusTotal = profit * 0.10;
-  const bonusEach = bonusTotal / k;
-  const malusEach = bonusTotal / (n - k);
-
-  for (const p of partners) {
-    const cur = out.get(p.name) ?? 0;
-    if (players.has(p.id)) out.set(p.name, cur + bonusEach);
-    else out.set(p.name, cur - malusEach);
-  }
-
-  return out;
-}
-
 
   function Logo({ accountId }: { accountId: string }) {
     const meta = accountMeta.get(accountId);
@@ -777,17 +737,15 @@ if (feeErr) return setMsg(feeErr.message);
           quota: <span className="font-semibold">{leg.odds}</span>
         </div>
         <div className="mt-2 flex items-center justify-between gap-2">
-  <StatusPills status={leg.status} onSet={(s) => setLegStatus(leg.id, s)} />
-  <button
-  type="button"
-  onClick={() => openEditLeg(leg)}
-  className="rounded-lg border border-yellow-600 bg-yellow-900/40 px-3 py-1 text-xs font-semibold text-yellow-200 hover:bg-yellow-800/60"
->
-  Modifica
-</button>
-
-</div>
-
+          <StatusPills status={leg.status} onSet={(s) => setLegStatus(leg.id, s)} />
+          <button
+            type="button"
+            onClick={() => openEditLeg(leg)}
+            className="rounded-lg border border-yellow-600 bg-yellow-900/40 px-3 py-1 text-xs font-semibold text-yellow-200 hover:bg-yellow-800/60"
+          >
+            Modifica
+          </button>
+        </div>
       </div>
     );
   }
@@ -850,44 +808,40 @@ if (feeErr) return setMsg(feeErr.message);
                 />
               </label>
             </div>
+
             <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
-  <div className="text-sm font-semibold text-zinc-200">Chi ha giocato la bet (bonus 10%)</div>
-  <button
-  type="button"
-  onClick={() => setNewPlayers([])}
-  className="mt-2 rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
->
-  Pulisci selezione
-</button>
-  <div className="mt-1 text-xs text-zinc-400">
-    Se selezioni tutti i soci, il bonus non si applica (ripartizione pro-quota normale).
-  </div>
+              <div className="text-sm font-semibold text-zinc-200">Chi ha giocato la bet (bonus 10%)</div>
+              <button
+                type="button"
+                onClick={() => setNewPlayers([])}
+                className="mt-2 rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
+              >
+                Pulisci selezione
+              </button>
+              <div className="mt-1 text-xs text-zinc-400">Se selezioni tutti i soci, il bonus non si applica.</div>
 
-  <div className="mt-3 flex flex-wrap gap-2">
-    {partners.map((p) => {
-      const active = newPlayers.includes(p.id);
-      return (
-        <button
-          key={p.id}
-          type="button"
-          onClick={() => {
-            setNewPlayers((prev) =>
-              prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
-            );
-          }}
-          className={`rounded-xl px-3 py-2 text-xs font-semibold border ${
-            active
-              ? "border-yellow-600 bg-yellow-900/40 text-yellow-200"
-              : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900"
-          }`}
-        >
-          {p.name}
-        </button>
-      );
-    })}
-  </div>
-</div>
-
+              <div className="mt-3 flex flex-wrap gap-2">
+                {partnersActive.map((p) => {
+                  const active = newPlayers.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setNewPlayers((prev) => (prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]));
+                      }}
+                      className={`rounded-xl px-3 py-2 text-xs font-semibold border ${
+                        active
+                          ? "border-yellow-600 bg-yellow-900/40 text-yellow-200"
+                          : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="mt-6 flex items-center justify-between">
               <h3 className="text-base font-semibold">Legs</h3>
@@ -906,19 +860,27 @@ if (feeErr) return setMsg(feeErr.message);
 
                     <label className="text-sm text-zinc-300">
                       Importo
-                      <input value={l.stake} onChange={(e) => updateNewLeg(i, { stake: e.target.value })}
-                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                      <input
+                        value={l.stake}
+                        onChange={(e) => updateNewLeg(i, { stake: e.target.value })}
+                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                      />
                     </label>
 
                     <label className="text-sm text-zinc-300">
                       Quota
-                      <input value={l.odds} onChange={(e) => updateNewLeg(i, { odds: e.target.value })}
-                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                      <input
+                        value={l.odds}
+                        onChange={(e) => updateNewLeg(i, { odds: e.target.value })}
+                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                      />
                     </label>
 
                     <label className="text-sm text-zinc-300">
                       Esito
-                      <select value={l.status} onChange={(e) => updateNewLeg(i, { status: e.target.value as any })}
+                      <select
+                        value={l.status}
+                        onChange={(e) => updateNewLeg(i, { status: e.target.value as any })}
                         className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                         style={{ colorScheme: "dark" }}
                       >
@@ -943,7 +905,7 @@ if (feeErr) return setMsg(feeErr.message);
             </button>
           </div>
 
-                    {/* In corso */}
+          {/* In corso */}
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">In corso</h2>
@@ -958,52 +920,40 @@ if (feeErr) return setMsg(feeErr.message);
                   <div key={bs.bet.id} className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-start gap-2">
-  <button
-    type="button"
-    onClick={() => toggleBetReview(bs.bet)}
-    className={`mt-1 h-3 w-3 rounded-full border ${
-      bs.bet.needs_review
-        ? "border-yellow-500 bg-yellow-400"
-        : "border-zinc-500 bg-transparent hover:border-zinc-300"
-    }`}
-    title={bs.bet.needs_review ? "Segnata per revisione" : "Segna per revisione"}
-  />
+                        <button
+                          type="button"
+                          onClick={() => toggleBetReview(bs.bet)}
+                          className={`mt-1 h-3 w-3 rounded-full border ${
+                            bs.bet.needs_review ? "border-yellow-500 bg-yellow-400" : "border-zinc-500 bg-transparent hover:border-zinc-300"
+                          }`}
+                          title={bs.bet.needs_review ? "Segnata per revisione" : "Segna per revisione"}
+                        />
 
-  <div className="flex flex-col">
-    <div className="text-sm text-zinc-200 flex items-center gap-2">
-      {formatDateIT(bs.bet.match_date)} — {(bs.bet.match_time ?? "").slice(0, 5)}
-      {isTwoHoursPastStart(bs.bet.match_date, bs.bet.match_time) && (
-        <span
-          title="Partita presumibilmente terminata"
-          className="rounded-md bg-emerald-700/80 px-2 py-0.5 text-xs font-semibold text-emerald-100 border border-emerald-600"
-        >
-          Finita
-        </span>
-      )}
-    </div>
+                        <div className="flex flex-col">
+                          <div className="text-sm text-zinc-200 flex items-center gap-2">
+                            {formatDateIT(bs.bet.match_date)} — {(bs.bet.match_time ?? "").slice(0, 5)}
+                            {isTwoHoursPastStart(bs.bet.match_date, bs.bet.match_time) && (
+                              <span
+                                title="Partita presumibilmente terminata"
+                                className="rounded-md bg-emerald-700/80 px-2 py-0.5 text-xs font-semibold text-emerald-100 border border-emerald-600"
+                              >
+                                Finita
+                              </span>
+                            )}
+                          </div>
 
-    {(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
-      <div className="mt-1 text-xs text-zinc-400">
-        Giocata da: {(playersByBetId.get(bs.bet.id) ?? []).join(", ")}
-      </div>
-    )}
-  </div>
-</div>
-
-
+                          {(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
+                            <div className="mt-1 text-xs text-zinc-400">Giocata da: {(playersByBetId.get(bs.bet.id) ?? []).join(", ")}</div>
+                          )}
+                        </div>
+                      </div>
 
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openEditBetModal(bs.bet)}
-                          className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
-                        >
+                        <button onClick={() => openEditBetModal(bs.bet)} className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700">
                           Modifica data/ora
                         </button>
 
-                        <button
-                          onClick={() => deleteBet(bs.bet.id)}
-                          className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
-                        >
+                        <button onClick={() => deleteBet(bs.bet.id)} className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700">
                           Elimina
                         </button>
                       </div>
@@ -1053,58 +1003,57 @@ if (feeErr) return setMsg(feeErr.message);
                           </summary>
 
                           <div className="px-4 pb-4 space-y-3">
-                            {d.bets.map((bs) => (
-                              <div key={bs.bet.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
-                                <div className="flex items-center justify-between">
-                                  <div className="text-sm text-zinc-200">
-                                    {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
-                                    <span className={`font-semibold ${signClass(bs.profit)}`}>
-                                      {bs.profit >= 0 ? "+" : ""}
-                                      {euro(bs.profit)}
-                                    </span>
+                            {d.bets.map((bs) => {
+                              const split = allocSplitByBetId.get(bs.bet.id) ?? new Map<string, number>();
+                              return (
+                                <div key={bs.bet.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="text-sm text-zinc-200">
+                                      {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
+                                      <span className={`font-semibold ${signClass(bs.profitNetFromAllocs)}`}>
+                                        {bs.profitNetFromAllocs >= 0 ? "+" : ""}
+                                        {euro(bs.profitNetFromAllocs)}
+                                      </span>
+                                    </div>
+
+                                    <button
+                                      onClick={() => deleteBet(bs.bet.id)}
+                                      className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+                                    >
+                                      Elimina
+                                    </button>
                                   </div>
 
-                                  <button
-                                    onClick={() => deleteBet(bs.bet.id)}
-                                    className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
-                                  >
-                                    Elimina
-                                  </button>
+                                  {(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
+                                    <div className="mt-2 text-xs text-zinc-400">Giocata da: {(playersByBetId.get(bs.bet.id) ?? []).join(", ")}</div>
+                                  )}
+
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {bs.legs.map((l, idx) => (
+                                      <LegCard key={l.id} leg={l} idx={idx} />
+                                    ))}
+                                  </div>
+
+                                  <div className="mt-2 flex items-start justify-between gap-4">
+                                    <div className="text-xs text-zinc-500">
+                                      Stake: {euro(bs.stakeTotal)} — Payout: {euro(bs.payoutTotal)} — Profit lordo: {euro(bs.profitGross)}
+                                    </div>
+
+                                    <div className="text-xs text-right space-y-1">
+                                      {Array.from(split.entries()).map(([pid, val]) => (
+                                        <div key={pid} className="font-semibold">
+                                          <span className="text-zinc-100">{partnerNameById.get(pid) ?? pid}:</span>{" "}
+                                          <span className={signClass(val)}>
+                                            {val >= 0 ? "+" : ""}
+                                            {euro(val)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
                                 </div>
-                              
-{(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
-  <div className="mt-2 text-xs text-zinc-400">
-    Giocata da: {(playersByBetId.get(bs.bet.id) ?? []).join(", ")}
-  </div>
-)}
-
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {bs.legs.map((l, idx) => (
-                                    <LegCard key={l.id} leg={l} idx={idx} />
-                                  ))}
-                                </div>
-
-                                <div className="mt-2 flex items-start justify-between gap-4">
-  <div className="text-xs text-zinc-500">
-    Stake: {euro(bs.stakeTotal)} — Payout: {euro(bs.payoutTotal)}
-  </div>
-
-  <div className="text-xs text-right space-y-1">
-  {Array.from(splitProfitWithBonus(bs.profit, bs.bet.id).entries()).map(([name, val]) => (
-    <div key={name} className="font-semibold">
-      <span className="text-zinc-100">{name}:</span>{" "}
-      <span className={signClass(val)}>
-        {val >= 0 ? "+" : ""}
-        {euro(val)}
-      </span>
-    </div>
-  ))}
-</div>
-
-</div>
-
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </details>
                       ))}
@@ -1114,118 +1063,79 @@ if (feeErr) return setMsg(feeErr.message);
               </div>
             )}
           </div>
+
+          {/* MODAL: Modifica data/ora bet */}
+          {openEditBet && (
+            <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+              <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">Modifica data/ora bet</h2>
+                  <button onClick={() => setOpenEditBet(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+                    Chiudi
+                  </button>
+                </div>
+
+                {editBetErr && (
+                  <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">{editBetErr}</div>
+                )}
+
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <label className="text-sm text-zinc-300">
+                    Data
+                    <input type="date" value={editBetDate} onChange={(e) => setEditBetDate(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                  </label>
+
+                  <label className="text-sm text-zinc-300">
+                    Ora
+                    <input type="time" value={editBetTime} onChange={(e) => setEditBetTime(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                  </label>
+                </div>
+
+                <button onClick={saveEditBet} className="mt-6 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+                  Salva
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL: Modifica leg */}
+          {openEdit && (
+            <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+              <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">Modifica leg</h2>
+                  <button onClick={() => setOpenEdit(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+                    Chiudi
+                  </button>
+                </div>
+
+                {editErr && (
+                  <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">{editErr}</div>
+                )}
+
+                <div className="mt-4 grid grid-cols-1 gap-3">
+                  <div>
+                    <SearchSelect label="Bookmaker / Persona" value={editAccountId} options={allAccountOptions} onChange={setEditAccountId} />
+                  </div>
+
+                  <label className="text-sm text-zinc-300">
+                    Importo
+                    <input value={editStake} onChange={(e) => setEditStake(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                  </label>
+
+                  <label className="text-sm text-zinc-300">
+                    Quota
+                    <input value={editOdds} onChange={(e) => setEditOdds(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                  </label>
+
+                  <button onClick={saveEditLeg} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+                    Salva modifiche
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
-      )}
-
-      {/* MODAL: Modifica data/ora bet */}
-      {openEditBet && (
-        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Modifica data/ora bet</h2>
-              <button
-                onClick={() => setOpenEditBet(false)}
-                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-              >
-                Chiudi
-              </button>
-            </div>
-
-            {editBetErr && (
-              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-                {editBetErr}
-              </div>
-            )}
-
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <label className="text-sm text-zinc-300">
-                Data
-                <input
-                  type="date"
-                  value={editBetDate}
-                  onChange={(e) => setEditBetDate(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-
-              <label className="text-sm text-zinc-300">
-                Ora
-                <input
-                  type="time"
-                  value={editBetTime}
-                  onChange={(e) => setEditBetTime(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-            </div>
-
-            <button
-              onClick={saveEditBet}
-              className="mt-6 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-            >
-              Salva
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Modifica leg */}
-      {openEdit && (
-        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Modifica leg</h2>
-              <button
-                onClick={() => setOpenEdit(false)}
-                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-              >
-                Chiudi
-              </button>
-            </div>
-
-            {editErr && (
-              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-                {editErr}
-              </div>
-            )}
-
-            <div className="mt-4 grid grid-cols-1 gap-3">
-              <div>
-                <SearchSelect
-                  label="Bookmaker / Persona"
-                  value={editAccountId}
-                  options={allAccountOptions}
-                  onChange={setEditAccountId}
-                />
-              </div>
-
-              <label className="text-sm text-zinc-300">
-                Importo
-                <input
-                  value={editStake}
-                  onChange={(e) => setEditStake(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-
-              <label className="text-sm text-zinc-300">
-                Quota
-                <input
-                  value={editOdds}
-                  onChange={(e) => setEditOdds(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-
-              <button
-                onClick={saveEditLeg}
-                className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-              >
-                Salva modifiche
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </main>
   );

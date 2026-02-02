@@ -28,7 +28,13 @@ type BetLeg = {
 type AdjustmentRow = { id: string; created_at: string; amount: number; note: string | null };
 
 type PersonRow = { id: string; name: string };
-type PaymentMethodRow = { id: string; owner_person_id: string; label: string; method_type: string | null; last4: string | null };
+type PaymentMethodRow = {
+  id: string;
+  owner_person_id: string;
+  label: string;
+  method_type: string | null;
+  last4: string | null;
+};
 
 type PaymentMethodPanelRow = {
   person_name: string;
@@ -37,6 +43,7 @@ type PaymentMethodPanelRow = {
   in_transito: number;
   totale: number;
 };
+
 type PeopleFeePanelRow = {
   person_id: string;
   person_name: string;
@@ -49,7 +56,6 @@ type PeopleFeePanelRow = {
   fee_available: number;
 };
 
-
 type PartnerCashOpRow = {
   id: string;
   created_at: string;
@@ -58,13 +64,15 @@ type PartnerCashOpRow = {
   kind: "deposit" | "withdraw";
   amount: number;
   note: string | null;
+  is_system: boolean;
 };
 
 type BetPlayerRow = { bet_id: string; partner: { id: string; name: string } };
 type BetAllocationRow = { bet_id: string; partner_id: string; amount: number };
+
+type BonusRow = { partner_id: string; partner_name: string; bonus_net: number };
+
 type FeeWithdrawalRow = { id: string; created_at: string; amount: number; note: string | null };
-
-
 
 function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
@@ -115,9 +123,9 @@ export default function RiepilogoPage() {
   const [cashOps, setCashOps] = useState<PartnerCashOpRow[]>([]);
   const [betPlayers, setBetPlayers] = useState<BetPlayerRow[]>([]);
   const [betAllocs, setBetAllocs] = useState<BetAllocationRow[]>([]);
+  const [bonusRows, setBonusRows] = useState<BonusRow[]>([]);
 
-
-  // modal prelievo/deposito
+  // ===== MODAL: Prelievo/Deposito soci =====
   const [openCash, setOpenCash] = useState(false);
   const [cashPartnerId, setCashPartnerId] = useState<string>("");
   const [cashPmId, setCashPmId] = useState<string>("");
@@ -125,135 +133,212 @@ export default function RiepilogoPage() {
   const [cashAmount, setCashAmount] = useState<string>("");
   const [cashNote, setCashNote] = useState<string>("");
   const [cashUiErr, setCashUiErr] = useState<string>("");
+
   // ===== Nuova persona (bookmaker prestati) =====
-const [newPersonOpen, setNewPersonOpen] = useState(false);
-const [newPersonName, setNewPersonName] = useState("");
-const [newPersonMethod, setNewPersonMethod] = useState("");
-const [newPersonFeePct, setNewPersonFeePct] = useState("0"); // es. 0.05 = 5%
-const [newPersonErr, setNewPersonErr] = useState("");
+  const [newPersonOpen, setNewPersonOpen] = useState(false);
+  const [newPersonName, setNewPersonName] = useState("");
+  const [newPersonMethod, setNewPersonMethod] = useState("");
+  const [newPersonFeePct, setNewPersonFeePct] = useState("0");
+  const [newPersonErr, setNewPersonErr] = useState("");
 
-// ===== Prelievo fee persona =====
-const [openFeeWithdraw, setOpenFeeWithdraw] = useState(false);
-const [feePersonId, setFeePersonId] = useState("");
-const [feeWithdrawAmount, setFeeWithdrawAmount] = useState("");
-const [feeWithdrawNote, setFeeWithdrawNote] = useState("");
-const [feeWithdrawErr, setFeeWithdrawErr] = useState("");
-// ===== Storico prelievi (gear) =====
-const [openFeeHistory, setOpenFeeHistory] = useState(false);
-const [feeHistoryPersonId, setFeeHistoryPersonId] = useState("");
-const [feeHistoryRows, setFeeHistoryRows] = useState<FeeWithdrawalRow[]>([]);
-const [feeHistoryErr, setFeeHistoryErr] = useState("");
-const [feeHistoryLoading, setFeeHistoryLoading] = useState(false);
+  // ===== Prelievo fee persona =====
+  const [openFeeWithdraw, setOpenFeeWithdraw] = useState(false);
+  const [feePersonId, setFeePersonId] = useState("");
+  const [feeWithdrawAmount, setFeeWithdrawAmount] = useState("");
+  const [feeWithdrawNote, setFeeWithdrawNote] = useState("");
+  const [feeWithdrawErr, setFeeWithdrawErr] = useState("");
 
+  // ===== Storico prelievi fee persona =====
+  const [openFeeHistory, setOpenFeeHistory] = useState(false);
+  const [feeHistoryPersonId, setFeeHistoryPersonId] = useState("");
+  const [feeHistoryRows, setFeeHistoryRows] = useState<FeeWithdrawalRow[]>([]);
+  const [feeHistoryErr, setFeeHistoryErr] = useState("");
+  const [feeHistoryLoading, setFeeHistoryLoading] = useState(false);
 
-function openFeeWithdrawModal(personId: string) {
-  setFeeWithdrawErr("");
-  setFeePersonId(personId);
-  setFeeWithdrawAmount("");
-  setFeeWithdrawNote("");
-  setOpenFeeWithdraw(true);
-}
+  // ===== Nuovo socio =====
+  const [openNewPartner, setOpenNewPartner] = useState(false);
+  const [npName, setNpName] = useState("");
+  const [npAmount, setNpAmount] = useState("");
+  const [npMethod, setNpMethod] = useState("");
+  const [npErr, setNpErr] = useState("");
 
-async function submitNewPerson() {
-  setNewPersonErr("");
-  setErrorMsg("");
+  async function submitNewPartner() {
+    setNpErr("");
+    setErrorMsg("");
 
-  const name = newPersonName.trim();
-  const label = newPersonMethod.trim();
-  const pct = toNumberInput(newPersonFeePct); // già esiste nel file
+    const name = npName.trim();
+    const method = npMethod.trim();
+    const amt = toNumberInput(npAmount);
 
-  if (!name) return setNewPersonErr("Inserisci il nome");
-  if (!label) return setNewPersonErr("Inserisci il metodo di pagamento");
-  if (!Number.isFinite(pct) || pct < 0 || pct > 0.2) return setNewPersonErr("Fee non valida (usa es. 0.05 per 5% oppure 0)");
+    if (!name) return setNpErr("Inserisci il nome");
+    if (!method) return setNpErr("Inserisci il metodo di pagamento");
+    if (!Number.isFinite(amt) || amt <= 0) return setNpErr("Conferimento non valido (>0)");
 
-  const { error } = await supabase.rpc("create_fee_person", {
-    p_person_name: name,
-    p_payment_label: label,
-    p_fee_pct: pct,
-  });
-  if (error) return setNewPersonErr(error.message);
+    const { error } = await supabase.rpc("add_partner_full", {
+      p_name: name,
+      p_conferimento: amt,
+      p_method_label: method,
+    });
 
-  setNewPersonOpen(false);
-  setNewPersonName("");
-  setNewPersonMethod("");
-  setNewPersonFeePct("0");
+    if (error) return setNpErr(error.message);
 
-  await loadAll(false);
-}
+    setOpenNewPartner(false);
+    setNpName("");
+    setNpAmount("");
+    setNpMethod("");
 
-async function submitFeeWithdraw() {
-  setFeeWithdrawErr("");
-  setErrorMsg("");
-
-  if (!feePersonId) return setFeeWithdrawErr("Persona non valida");
-  const amt = toNumberInput(feeWithdrawAmount);
-  if (!Number.isFinite(amt) || amt <= 0) return setFeeWithdrawErr("Importo non valido (>0)");
-
-  const row = peopleFeePanel.find((x) => x.person_id === feePersonId);
-  const available = Number(row?.fee_available ?? 0);
-  if (amt > available + 1e-9) return setFeeWithdrawErr(`Importo troppo alto. Disponibile ${euro(available)}`);
-
-  const { error } = await supabase.rpc("withdraw_person_fee", {
-    p_person_id: feePersonId,
-    p_amount: amt,
-    p_note: feeWithdrawNote.trim() || null,
-  });
-  if (error) return setFeeWithdrawErr(error.message);
-
-  setOpenFeeWithdraw(false);
-  await loadAll(false);
-}
-async function openFeeHistoryModal(personId: string) {
-  setFeeHistoryErr("");
-  setFeeHistoryPersonId(personId);
-  setFeeHistoryRows([]);
-  setOpenFeeHistory(true);
-
-  setFeeHistoryLoading(true);
-  const { data, error } = await supabase
-    .from("person_fee_withdrawals")
-    .select("id,created_at,amount,note")
-    .eq("person_id", personId)
-    .order("created_at", { ascending: false })
-    .limit(200);
-
-  setFeeHistoryLoading(false);
-  if (error) return setFeeHistoryErr(error.message);
-
-  setFeeHistoryRows((data ?? []) as FeeWithdrawalRow[]);
-}
-
-async function cancelFeeWithdrawal(withdrawalId: string) {
-  const ok = window.confirm("Annullare questo prelievo? (ripristina il saldo del metodo)");
-  if (!ok) return;
-
-  const { error } = await supabase.rpc("cancel_person_fee_withdrawal", {
-    p_withdrawal_id: withdrawalId,
-  });
-  if (error) return alert(error.message);
-
-  // ricarico sia tabella principale che storico
-  await loadAll(false);
-  await openFeeHistoryModal(feeHistoryPersonId);
-}
-
-async function deleteLenderPerson(personId: string) {
-  const row = peopleFeePanel.find((x) => x.person_id === personId);
-  const available = Number(row?.fee_available ?? 0);
-
-  if (Math.abs(available) > 0.009) {
-    return alert("Puoi eliminare solo se Disponibile è 0€");
+    await loadAll(false);
   }
 
-  const ok = window.confirm("Eliminare questa persona? (rimuove anche accounts e metodi pagamento)");
-  if (!ok) return;
+  // ===== Uscita socio =====
+  const [openPartnerMenuId, setOpenPartnerMenuId] = useState<string>("");
+  const [openExit, setOpenExit] = useState(false);
+  const [exitPartnerId, setExitPartnerId] = useState("");
+  const [exitPartnerName, setExitPartnerName] = useState("");
+  const [exitPmId, setExitPmId] = useState("");
+  const [exitErr, setExitErr] = useState("");
 
-  const { error } = await supabase.rpc("delete_lender_person_safe", { p_person_id: personId });
-  if (error) return alert(error.message);
+  function openExitModalFor(partnerId: string, partnerName: string) {
+    setExitErr("");
+    setExitPartnerId(partnerId);
+    setExitPartnerName(partnerName);
 
-  await loadAll(false);
-}
+    const p = people.find((x) => x.name === partnerName);
+    const pm = paymentMethods.find((m) => m.owner_person_id === p?.id && m.label !== "__ESTERNO__");
+    setExitPmId(pm?.id ?? "");
 
+    setOpenExit(true);
+  }
+
+  async function confirmExitPartner() {
+    setExitErr("");
+    setErrorMsg("");
+
+    if (!exitPartnerId) return setExitErr("Socio non valido");
+    if (!exitPmId) return setExitErr("Seleziona il metodo di pagamento");
+
+    const ok = window.confirm(`Vuoi davvero eliminare ${exitPartnerName}?`);
+    if (!ok) return;
+
+    const { error } = await supabase.rpc("exit_partner", {
+      p_partner_id: exitPartnerId,
+      p_payment_method_id: exitPmId,
+    });
+
+    if (error) return setExitErr(error.message);
+
+    setOpenExit(false);
+    setOpenPartnerMenuId("");
+    await loadAll(false);
+  }
+
+  function openFeeWithdrawModal(personId: string) {
+    setFeeWithdrawErr("");
+    setFeePersonId(personId);
+    setFeeWithdrawAmount("");
+    setFeeWithdrawNote("");
+    setOpenFeeWithdraw(true);
+  }
+
+  async function submitNewPerson() {
+    setNewPersonErr("");
+    setErrorMsg("");
+
+    const name = newPersonName.trim();
+    const label = newPersonMethod.trim();
+    const pct = toNumberInput(newPersonFeePct);
+
+    if (!name) return setNewPersonErr("Inserisci il nome");
+    if (!label) return setNewPersonErr("Inserisci il metodo di pagamento");
+    if (!Number.isFinite(pct) || pct < 0 || pct > 0.2) return setNewPersonErr("Fee non valida (usa 0.05 per 5% oppure 0)");
+
+    const { error } = await supabase.rpc("create_fee_person", {
+      p_person_name: name,
+      p_payment_label: label,
+      p_fee_pct: pct,
+    });
+    if (error) return setNewPersonErr(error.message);
+
+    setNewPersonOpen(false);
+    setNewPersonName("");
+    setNewPersonMethod("");
+    setNewPersonFeePct("0");
+
+    await loadAll(false);
+  }
+
+  async function submitFeeWithdraw() {
+    setFeeWithdrawErr("");
+    setErrorMsg("");
+
+    if (!feePersonId) return setFeeWithdrawErr("Persona non valida");
+    const amt = toNumberInput(feeWithdrawAmount);
+    if (!Number.isFinite(amt) || amt <= 0) return setFeeWithdrawErr("Importo non valido (>0)");
+
+    const row = peopleFeePanel.find((x) => x.person_id === feePersonId);
+    const available = Number(row?.fee_available ?? 0);
+    if (amt > available + 1e-9) return setFeeWithdrawErr(`Importo troppo alto. Disponibile ${euro(available)}`);
+
+    const { error } = await supabase.rpc("withdraw_person_fee", {
+      p_person_id: feePersonId,
+      p_amount: amt,
+      p_note: feeWithdrawNote.trim() || null,
+    });
+    if (error) return setFeeWithdrawErr(error.message);
+
+    setOpenFeeWithdraw(false);
+    await loadAll(false);
+  }
+
+  async function openFeeHistoryModal(personId: string) {
+    setFeeHistoryErr("");
+    setFeeHistoryPersonId(personId);
+    setFeeHistoryRows([]);
+    setOpenFeeHistory(true);
+
+    setFeeHistoryLoading(true);
+    const { data, error } = await supabase
+      .from("person_fee_withdrawals")
+      .select("id,created_at,amount,note")
+      .eq("person_id", personId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    setFeeHistoryLoading(false);
+    if (error) return setFeeHistoryErr(error.message);
+
+    setFeeHistoryRows((data ?? []) as FeeWithdrawalRow[]);
+  }
+
+  async function cancelFeeWithdrawal(withdrawalId: string) {
+    const ok = window.confirm("Annullare questo prelievo? (ripristina il saldo del metodo)");
+    if (!ok) return;
+
+    const { error } = await supabase.rpc("cancel_person_fee_withdrawal", {
+      p_withdrawal_id: withdrawalId,
+    });
+    if (error) return alert(error.message);
+
+    await loadAll(false);
+    await openFeeHistoryModal(feeHistoryPersonId);
+  }
+
+  async function deleteLenderPerson(personId: string) {
+    const row = peopleFeePanel.find((x) => x.person_id === personId);
+    const available = Number(row?.fee_available ?? 0);
+
+    if (Math.abs(available) > 0.009) {
+      return alert("Puoi eliminare solo se Disponibile è 0€");
+    }
+
+    const ok = window.confirm("Eliminare questa persona? (rimuove anche accounts e metodi pagamento)");
+    if (!ok) return;
+
+    const { error } = await supabase.rpc("delete_lender_person_safe", { p_person_id: personId });
+    if (error) return alert(error.message);
+
+    await loadAll(false);
+  }
 
   const sinceISO = useMemo(() => {
     const d = new Date();
@@ -283,35 +368,37 @@ async function deleteLenderPerson(personId: string) {
       { data: ba, error: bae },
       { data: pfp, error: pfpErr },
 
-
+      { data: bn, error: bnErr },
     ] = await Promise.all([
-      supabase.from("partners").select("id,name").order("name"),
+      supabase.from("partners").select("id,name").eq("is_active", true).order("name"),
       supabase.from("equity_events").select("id,created_at,partner_id,cash_in,units_minted,note").order("created_at", { ascending: true }),
       supabase.rpc("current_capital_including_transit"),
 
       supabase.from("bets").select("id,match_date,match_time").gte("match_date", sinceISO).order("match_date", { ascending: false }).order("match_time", { ascending: false }).limit(5000),
-
       supabase.from("bet_legs").select("id,bet_id,stake,odds,status,created_at").order("created_at", { ascending: true }).order("id", { ascending: true }).limit(50000),
-
       supabase.from("balance_adjustments").select("id,created_at,amount,note").gte("created_at", sinceISO + "T00:00:00Z").order("created_at", { ascending: false }).limit(5000),
 
       supabase.from("people").select("id,name").order("name"),
       supabase.from("payment_methods").select("id,owner_person_id,label,method_type,last4").order("label"),
-
       supabase.from("v_payment_methods_panel").select("person_name,method,balance,in_transito,totale"),
 
-      supabase.from("partner_cash_ops").select("id,created_at,partner_id,payment_method_id,kind,amount,note").order("created_at", { ascending: false }).limit(5000),
+      supabase
+        .from("partner_cash_ops")
+        .select("id,created_at,partner_id,payment_method_id,kind,amount,note,is_system")
+        .eq("is_system", false)
+        .order("created_at", { ascending: false })
+        .limit(5000),
 
       supabase.from("bet_players").select("bet_id, partner:partners(id,name)").limit(50000),
       supabase.from("bet_allocations").select("bet_id,partner_id,amount").limit(50000),
       supabase.from("v_people_fee_panel").select("*"),
 
-
+      // ✅ bonus stabile dal DB
+      supabase.from("v_partner_bonus_net").select("partner_id,partner_name,bonus_net"),
     ]);
 
-    const err = pe || ee || ce || be || ble || adje || pplErr || pmErr || panelErr || opsErr || bpe || bae || pfpErr;
-
-
+    const err =
+      pe || ee || ce || be || ble || adje || pplErr || pmErr || panelErr || opsErr || bpe || bae || pfpErr || bnErr;
 
     if (err) {
       setErrorMsg(err.message);
@@ -340,8 +427,7 @@ async function deleteLenderPerson(personId: string) {
     setBetPlayers(bpClean);
     setBetAllocs((ba ?? []) as BetAllocationRow[]);
     setPeopleFeePanel((pfp ?? []) as PeopleFeePanelRow[]);
-
-
+    setBonusRows((bn ?? []) as BonusRow[]);
 
     setLoading(false);
   }
@@ -352,7 +438,7 @@ async function deleteLenderPerson(personId: string) {
     return () => clearInterval(interval);
   }, [sinceISO]);
 
-  // ===== QUOTE (equity_events) =====
+  // ===== Quote base (equity_events) =====
   const byPartner = useMemo(() => {
     const map = new Map<string, { cashIn: number; units: number }>();
     for (const p of partners) map.set(p.id, { cashIn: 0, units: 0 });
@@ -379,21 +465,51 @@ async function deleteLenderPerson(personId: string) {
 
   const overallProfit = useMemo(() => capital - totalCashIn, [capital, totalCashIn]);
 
-  const table = useMemo(() => {
-    return partners
-      .map((p) => {
-        const v = byPartner.get(p.id) ?? { cashIn: 0, units: 0 };
-        const quota = totalUnits > 0 ? v.units / totalUnits : 0;
-        const capitalProQuota = capital * quota;
-        const gainProQuota = capitalProQuota - v.cashIn;
-        return { id: p.id, name: p.name, cashIn: v.cashIn, quota, capitalProQuota, gainProQuota };
-      })
-      .sort((a, b) => b.quota - a.quota);
-  }, [partners, byPartner, totalUnits, capital]);
-
-  const capitalProQuotaByPartnerId = useMemo(() => {
+  const bonusByPartnerId = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of table) m.set(r.id, Number(r.capitalProQuota ?? 0));
+    for (const r of bonusRows) m.set(r.partner_id, Number(r.bonus_net ?? 0));
+    return m;
+  }, [bonusRows]);
+
+  // tabella soci + capitale reale + quota reale
+  const table = useMemo(() => {
+    const rows = partners.map((p) => {
+      const v = byPartner.get(p.id) ?? { cashIn: 0, units: 0 };
+      const quotaBase = totalUnits > 0 ? v.units / totalUnits : 0;
+      const capitalProQuota = capital * quotaBase;
+      const gainProQuota = capitalProQuota - v.cashIn;
+
+      const bonusNet = Number(bonusByPartnerId.get(p.id) ?? 0);
+      const capitalReal = capitalProQuota + bonusNet;
+      const gainReal = gainProQuota + bonusNet;
+
+      return {
+        id: p.id,
+        name: p.name,
+        cashIn: v.cashIn,
+        quotaBase,
+        capitalProQuota,
+        gainProQuota,
+        bonusNet,
+        capitalReal,
+        gainReal,
+      };
+    });
+
+    const totalReal = rows.reduce((s, r) => s + Number(r.capitalReal ?? 0), 0);
+    const out = rows
+      .map((r) => ({
+        ...r,
+        quotaReal: totalReal > 0 ? r.capitalReal / totalReal : 0,
+      }))
+      .sort((a, b) => b.quotaReal - a.quotaReal);
+
+    return out;
+  }, [partners, byPartner, totalUnits, capital, bonusByPartnerId]);
+
+  const capitalRealByPartnerId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of table) m.set(r.id, Number(r.capitalReal ?? 0));
     return m;
   }, [table]);
 
@@ -411,13 +527,8 @@ async function deleteLenderPerson(personId: string) {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [cashPartnerId, partners, paymentMethods, personNameById]);
 
-  const selectedPartnerName = useMemo(() => {
-    return partners.find((p) => p.id === cashPartnerId)?.name ?? "";
-  }, [partners, cashPartnerId]);
-
-  const selectedPmLabel = useMemo(() => {
-    return paymentMethods.find((pm) => pm.id === cashPmId)?.label ?? "";
-  }, [paymentMethods, cashPmId]);
+  const selectedPartnerName = useMemo(() => partners.find((p) => p.id === cashPartnerId)?.name ?? "", [partners, cashPartnerId]);
+  const selectedPmLabel = useMemo(() => paymentMethods.find((pm) => pm.id === cashPmId)?.label ?? "", [paymentMethods, cashPmId]);
 
   const pmBalanceByPersonAndMethod = useMemo(() => {
     const m = new Map<string, { balance: number; totale: number; in_transito: number }>();
@@ -446,85 +557,30 @@ async function deleteLenderPerson(personId: string) {
     return m;
   }, [cashOps, partners]);
 
-  const legsByBet = useMemo(() => {
-    const m = new Map<string, BetLeg[]>();
-    for (const l of betLegs) {
-      const arr = m.get(l.bet_id) ?? [];
-      arr.push(l);
-      m.set(l.bet_id, arr);
-    }
-    for (const [k, arr] of m.entries()) {
-      arr.sort((x, y) => {
-        if (x.created_at < y.created_at) return -1;
-        if (x.created_at > y.created_at) return 1;
-        return x.id.localeCompare(y.id);
-      });
-      m.set(k, arr);
+  // profit netto per bet = somma allocazioni
+  const profitNetByBetId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of betAllocs) {
+      m.set(a.bet_id, (m.get(a.bet_id) ?? 0) + Number(a.amount ?? 0));
     }
     return m;
-  }, [betLegs]);
-  // Profit per bet (solo bet CHIUSE) → Map<bet_id, profit>
-const profitByBetId = useMemo(() => {
-  const m = new Map<string, number>();
-  for (const b of bets) {
-    const legs = legsByBet.get(b.id) ?? [];
-    if (legs.length === 0) continue;
-
-    const isClosed = legs.every((x) => x.status !== "open");
-    if (!isClosed) continue;
-
-    const stakeTotal = legs.reduce((s, x) => s + Number(x.stake ?? 0), 0);
-    const payoutTotal = legs.reduce((s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0), 0);
-    m.set(b.id, payoutTotal - stakeTotal);
-  }
-  return m;
-}, [bets, legsByBet]);
-
-// Quota per socio → Map<partner_id, quota>
-const quotaByPartnerId = useMemo(() => {
-  const m = new Map<string, number>();
-  for (const r of table) m.set(r.id, Number(r.quota ?? 0));
-  return m;
-}, [table]);
-
-// Bonus/Malus cumulato per socio (rispetto al pro-quota puro)
-const bonusNetByPartnerId = useMemo(() => {
-  const m = new Map<string, number>();
-  for (const p of partners) m.set(p.id, 0);
-
-  for (const a of betAllocs) {
-    const profit = profitByBetId.get(a.bet_id);
-    if (profit === undefined) continue;
-
-    const q = quotaByPartnerId.get(a.partner_id) ?? 0;
-    const base = profit * q;
-
-    const net = Number(a.amount ?? 0) - base;
-    m.set(a.partner_id, (m.get(a.partner_id) ?? 0) + net);
-  }
-
-  return m;
-}, [betAllocs, profitByBetId, quotaByPartnerId, partners]);
-
+  }, [betAllocs]);
 
   const betProfitByDay = useMemo(() => {
     const map = new Map<string, number>();
     for (const b of bets) {
-      const legs = legsByBet.get(b.id) ?? [];
+      const legs = betLegs.filter((x) => x.bet_id === b.id);
       if (legs.length === 0) continue;
 
       const isClosed = legs.every((x) => x.status !== "open");
       if (!isClosed) continue;
 
-      const stakeTotal = legs.reduce((s, x) => s + Number(x.stake ?? 0), 0);
-      const payoutTotal = legs.reduce((s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0), 0);
-      const profit = payoutTotal - stakeTotal;
-
+      const profit = Number(profitNetByBetId.get(b.id) ?? 0);
       const day = b.match_date;
       map.set(day, (map.get(day) ?? 0) + profit);
     }
     return map;
-  }, [bets, legsByBet]);
+  }, [bets, betLegs, profitNetByBetId]);
 
   const adjByDay = useMemo(() => {
     const map = new Map<string, number>();
@@ -587,7 +643,8 @@ const bonusNetByPartnerId = useMemo(() => {
     const amt = toNumberInput(cashAmount);
     if (!Number.isFinite(amt) || amt <= 0) return setCashUiErr("Importo non valido (>0)");
 
-    const max = Number(capitalProQuotaByPartnerId.get(cashPartnerId) ?? 0);
+    // ✅ MAX = capitale REALE (non pro-quota)
+    const max = Number(capitalRealByPartnerId.get(cashPartnerId) ?? 0);
     if (amt > max + 1e-9) return setCashUiErr(`Importo troppo alto. Max ${euro(max)}`);
 
     if (cashKind === "withdraw") {
@@ -632,25 +689,17 @@ const bonusNetByPartnerId = useMemo(() => {
         <h1 className="text-2xl font-semibold">Riepilogo</h1>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={openCashModal}
-            className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
-          >
+          <button onClick={openCashModal} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700">
             Prelievo/Deposito soci
           </button>
-          <button
-            onClick={() => loadAll(true)}
-            className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-          >
+          <button onClick={() => loadAll(true)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
             Aggiorna
           </button>
         </div>
       </div>
 
       {errorMsg && (
-        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          Errore: {errorMsg}
-        </div>
+        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">Errore: {errorMsg}</div>
       )}
 
       {loading ? (
@@ -681,7 +730,22 @@ const bonusNetByPartnerId = useMemo(() => {
 
           {/* Soci */}
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-            <h2 className="text-lg font-semibold">Soci</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Soci</h2>
+              <button
+                onClick={() => {
+                  setNpErr("");
+                  setNpName("");
+                  setNpAmount("");
+                  setNpMethod("");
+                  setOpenNewPartner(true);
+                }}
+                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
+              >
+                + Socio
+              </button>
+            </div>
+
             <div className="mt-4 overflow-auto rounded-xl border border-zinc-800">
               <table className="min-w-[1200px] w-full border-collapse table-fixed">
                 <thead className="bg-zinc-900">
@@ -689,62 +753,88 @@ const bonusNetByPartnerId = useMemo(() => {
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Socio</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Capitale iniziale (netto)</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Prelievi/Depositi</th>
-                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Quota</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Quota reale</th>
                     <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Capitale pro-quota</th>
-<th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Capitale reale</th>
-<th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno pro-quota</th>
-<th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Bonus/Malus</th>
-<th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno reale</th>
-
-
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Capitale reale</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno pro-quota</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Bonus/Malus</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Guadagno reale</th>
                   </tr>
                 </thead>
+
                 <colgroup>
-  <col className="w-[140px]" />  {/* Socio */}
-  <col className="w-[150px]" />  {/* Capitale iniziale */}
-  <col className="w-[130px]" />  {/* Prelievi/Depositi */}
-  <col className="w-[90px]" />   {/* Quota */}
-  <col className="w-[140px]" />  {/* Capitale pro-quota */}
-  <col className="w-[140px]" />  {/* Capitale reale */}
-  <col className="w-[140px]" />  {/* Guadagno pro-quota */}
-  <col className="w-[120px]" />  {/* Bonus/Malus */}
-  <col className="w-[140px]" />  {/* Guadagno reale */}
-</colgroup>
+                  <col className="w-[140px]" />
+                  <col className="w-[150px]" />
+                  <col className="w-[130px]" />
+                  <col className="w-[90px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[140px]" />
+                </colgroup>
 
                 <tbody>
                   {table.map((r) => {
                     const net = Number(cashNetByPartnerId.get(r.id) ?? 0);
-const bonusNet = Number(bonusNetByPartnerId.get(r.id) ?? 0);
-const capitalReal = Number(r.capitalProQuota ?? 0) + bonusNet;
-const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
-
 
                     return (
                       <tr key={r.id} className="border-t border-zinc-800">
-                        <td className="px-3 py-2 text-sm font-medium text-zinc-100">{r.name}</td>
+                        <td className="px-3 py-2 text-sm font-medium text-zinc-100">
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{r.name}</span>
+
+                            <button
+                              type="button"
+                              onClick={() => setOpenPartnerMenuId(openPartnerMenuId === r.id ? "" : r.id)}
+                              className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
+                              title="Azioni"
+                            >
+                              ⋮
+                            </button>
+                          </div>
+
+                          {openPartnerMenuId === r.id && (
+                            <div className="mt-2 rounded-xl border border-zinc-800 bg-zinc-950/60 p-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenPartnerMenuId("");
+                                  openExitModalFor(r.id, r.name);
+                                }}
+                                className="w-full rounded-lg bg-red-900/40 px-3 py-2 text-left text-xs font-semibold text-red-100 hover:bg-red-800/60"
+                              >
+                                Uscita socio
+                              </button>
+                            </div>
+                          )}
+                        </td>
+
                         <td className="px-3 py-2 text-sm text-zinc-100">{euro(r.cashIn)}</td>
+
                         <td className={`px-3 py-2 text-sm font-semibold ${signClass(net)}`}>
                           {net >= 0 ? "+" : ""}
                           {euro(net)}
                         </td>
-                        <td className="px-3 py-2 text-sm text-zinc-100">{(r.quota * 100).toFixed(2)}%</td>
+
+                        <td className="px-3 py-2 text-sm text-zinc-100">{(r.quotaReal * 100).toFixed(2)}%</td>
                         <td className="px-3 py-2 text-sm text-zinc-100">{euro(r.capitalProQuota)}</td>
-<td className="px-3 py-2 text-sm text-zinc-100">{euro(capitalReal)}</td>
+                        <td className="px-3 py-2 text-sm text-zinc-100">{euro(r.capitalReal)}</td>
 
-<td className={`px-3 py-2 text-sm font-semibold ${signClass(r.gainProQuota)}`}>
-  {r.gainProQuota >= 0 ? "+" : ""}
-  {euro(r.gainProQuota)}
-</td>
-                        <td className={`px-3 py-2 text-sm font-semibold ${signClass(bonusNet)}`}>
-  {bonusNet >= 0 ? "+" : ""}
-  {euro(bonusNet)}
-</td>
+                        <td className={`px-3 py-2 text-sm font-semibold ${signClass(r.gainProQuota)}`}>
+                          {r.gainProQuota >= 0 ? "+" : ""}
+                          {euro(r.gainProQuota)}
+                        </td>
 
-<td className={`px-3 py-2 text-sm font-semibold ${signClass(gainReal)}`}>
-  {gainReal >= 0 ? "+" : ""}
-  {euro(gainReal)}
-</td>
+                        <td className={`px-3 py-2 text-sm font-semibold ${signClass(r.bonusNet)}`}>
+                          {r.bonusNet >= 0 ? "+" : ""}
+                          {euro(r.bonusNet)}
+                        </td>
 
+                        <td className={`px-3 py-2 text-sm font-semibold ${signClass(r.gainReal)}`}>
+                          {r.gainReal >= 0 ? "+" : ""}
+                          {euro(r.gainReal)}
+                        </td>
                       </tr>
                     );
                   })}
@@ -753,109 +843,98 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
             </div>
           </div>
 
-{/* Persone (bookmaker prestati) */}
-<div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-  <div className="flex items-center justify-between gap-3">
-    <h2 className="text-lg font-semibold">Persone (bookmaker prestati)</h2>
+          {/* Persone (bookmaker prestati) */}
+          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Persone (bookmaker prestati)</h2>
 
-    <button
-      onClick={() => {
-        setNewPersonErr("");
-        setNewPersonOpen(true);
-      }}
-      className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
-    >
-      + Nuova persona
-    </button>
-  </div>
+              <button
+                onClick={() => {
+                  setNewPersonErr("");
+                  setNewPersonOpen(true);
+                }}
+                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
+              >
+                + Nuova persona
+              </button>
+            </div>
 
-  <div className="mt-4 overflow-auto rounded-xl border border-zinc-800">
-    <table className="min-w-[1100px] w-full border-collapse">
-      <thead className="bg-zinc-900">
-        <tr>
-          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Persona</th>
-          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Fee</th>
-          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Metodo</th>
-          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Generato</th>
-          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Prelevato</th>
-          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Disponibile</th>
-          <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Azioni</th>
-        </tr>
-      </thead>
+            <div className="mt-4 overflow-auto rounded-xl border border-zinc-800">
+              <table className="min-w-[1100px] w-full border-collapse">
+                <thead className="bg-zinc-900">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Persona</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Fee</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Metodo</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Generato</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Prelevato</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Disponibile</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">Azioni</th>
+                  </tr>
+                </thead>
 
-      <tbody>
-        {peopleFeePanel.map((r) => (
-          <tr key={r.person_id} className="border-t border-zinc-800">
-            <td className="px-3 py-2 text-sm font-medium text-zinc-100">{r.person_name}</td>
-            <td className="px-3 py-2 text-sm text-zinc-100">{(Number(r.fee_pct ?? 0) * 100).toFixed(2)}%</td>
-            <td className="px-3 py-2 text-sm text-zinc-100">{r.payment_method_label ?? "—"}</td>
-            <td className="px-3 py-2 text-sm text-zinc-100">{euro(Number(r.fee_generated ?? 0))}</td>
-            <td className="px-3 py-2 text-sm text-zinc-100">
-  <div className="flex items-center gap-2">
-    <span>{euro(Number(r.fee_withdrawn ?? 0))}</span>
+                <tbody>
+                  {peopleFeePanel.map((r) => (
+                    <tr key={r.person_id} className="border-t border-zinc-800">
+                      <td className="px-3 py-2 text-sm font-medium text-zinc-100">{r.person_name}</td>
+                      <td className="px-3 py-2 text-sm text-zinc-100">{(Number(r.fee_pct ?? 0) * 100).toFixed(2)}%</td>
+                      <td className="px-3 py-2 text-sm text-zinc-100">{r.payment_method_label ?? "—"}</td>
+                      <td className="px-3 py-2 text-sm text-zinc-100">{euro(Number(r.fee_generated ?? 0))}</td>
 
-    <button
-      type="button"
-      onClick={() => openFeeHistoryModal(r.person_id)}
-      className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
-      title="Storico prelievi"
-    >
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-        <circle cx="12" cy="5" r="1.6" />
-        <circle cx="12" cy="12" r="1.6" />
-        <circle cx="12" cy="19" r="1.6" />
-      </svg>
-    </button>
-  </div>
-</td>
+                      <td className="px-3 py-2 text-sm text-zinc-100">
+                        <div className="flex items-center gap-2">
+                          <span>{euro(Number(r.fee_withdrawn ?? 0))}</span>
 
+                          <button
+                            type="button"
+                            onClick={() => openFeeHistoryModal(r.person_id)}
+                            className="h-7 w-7 rounded-lg border border-zinc-700 bg-zinc-950/40 hover:bg-zinc-800 hover:border-zinc-600 flex items-center justify-center"
+                            title="Storico prelievi"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                              <circle cx="12" cy="5" r="1.6" />
+                              <circle cx="12" cy="12" r="1.6" />
+                              <circle cx="12" cy="19" r="1.6" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
 
-            <td className={`px-3 py-2 text-sm font-semibold ${signClass(Number(r.fee_available ?? 0))}`}>
-              {Number(r.fee_available ?? 0) >= 0 ? "+" : ""}
-              {euro(Number(r.fee_available ?? 0))}
-            </td>
-            <td className="px-3 py-2 text-sm">
-  <div className="flex items-center gap-2">
-    <button
-      onClick={() => openFeeWithdrawModal(r.person_id)}
-      className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold hover:bg-emerald-600"
-    >
-      Preleva
-    </button>
+                      <td className={`px-3 py-2 text-sm font-semibold ${signClass(Number(r.fee_available ?? 0))}`}>
+                        {Number(r.fee_available ?? 0) >= 0 ? "+" : ""}
+                        {euro(Number(r.fee_available ?? 0))}
+                      </td>
 
-    <button
-      onClick={() => deleteLenderPerson(r.person_id)}
-      disabled={Math.abs(Number(r.fee_available ?? 0)) > 0.009}
-      className={[
-        "rounded-xl px-3 py-2 text-xs font-semibold",
-        Math.abs(Number(r.fee_available ?? 0)) > 0.009
-          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-          : "bg-red-800/70 text-red-100 hover:bg-red-700",
-      ].join(" ")}
-      title={
-        Math.abs(Number(r.fee_available ?? 0)) > 0.009
-          ? "Disponibile deve essere 0€"
-          : "Elimina persona"
-      }
-    >
-      Elimina
-    </button>
-  </div>
-</td>
+                      <td className="px-3 py-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openFeeWithdrawModal(r.person_id)} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold hover:bg-emerald-600">
+                            Preleva
+                          </button>
 
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
-
+                          <button
+                            onClick={() => deleteLenderPerson(r.person_id)}
+                            disabled={Math.abs(Number(r.fee_available ?? 0)) > 0.009}
+                            className={[
+                              "rounded-xl px-3 py-2 text-xs font-semibold",
+                              Math.abs(Number(r.fee_available ?? 0)) > 0.009 ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" : "bg-red-800/70 text-red-100 hover:bg-red-700",
+                            ].join(" ")}
+                          >
+                            Elimina
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
           {/* P/L + Registro */}
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
               <h2 className="text-lg font-semibold">Profit/Loss mensile</h2>
-              <div className="mt-1 text-sm text-zinc-400">Totale mese = Profit bet chiuse + Rettifiche</div>
+              <div className="mt-1 text-sm text-zinc-400">Totale mese = Profit bet chiuse (netto fee) + Rettifiche</div>
 
               {monthlyPL.length === 0 ? (
                 <div className="mt-3 text-sm text-zinc-500">Nessun dato.</div>
@@ -867,14 +946,16 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
                         <div className="text-sm font-semibold text-zinc-100">{monthLabel(m.monthStart)}</div>
                         <div className="flex items-center gap-4 text-sm">
                           <span className={`font-semibold ${signClass(m.monthTotal)}`}>
-                            Totale {m.monthTotal >= 0 ? "+" : ""}{euro(m.monthTotal)}
+                            Totale {m.monthTotal >= 0 ? "+" : ""}
+                            {euro(m.monthTotal)}
                           </span>
                           <span className="text-zinc-400">
-                            Bet {m.monthBet >= 0 ? "+" : ""}{euro(m.monthBet)} · Rett {m.monthAdj >= 0 ? "+" : ""}{euro(m.monthAdj)}
+                            Bet {m.monthBet >= 0 ? "+" : ""}
+                            {euro(m.monthBet)} · Rett {m.monthAdj >= 0 ? "+" : ""}
+                            {euro(m.monthAdj)}
                           </span>
                         </div>
                       </summary>
-
                       <div className="px-4 pb-4 space-y-2">
                         {m.days.map((d) => (
                           <details key={d.dayISO} className="rounded-xl border border-zinc-800 bg-zinc-950/40">
@@ -882,10 +963,13 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
                               <div className="text-sm text-zinc-100">{d.dayISO}</div>
                               <div className="flex items-center gap-4 text-sm">
                                 <span className={`font-semibold ${signClass(d.total)}`}>
-                                  Totale {d.total >= 0 ? "+" : ""}{euro(d.total)}
+                                  Totale {d.total >= 0 ? "+" : ""}
+                                  {euro(d.total)}
                                 </span>
                                 <span className="text-zinc-400">
-                                  Bet {d.bet >= 0 ? "+" : ""}{euro(d.bet)} · Rett {d.adj >= 0 ? "+" : ""}{euro(d.adj)}
+                                  Bet {d.bet >= 0 ? "+" : ""}
+                                  {euro(d.bet)} · Rett {d.adj >= 0 ? "+" : ""}
+                                  {euro(d.adj)}
                                 </span>
                               </div>
                             </summary>
@@ -910,20 +994,26 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
                     const pmLabel = paymentMethods.find((pm) => pm.id === op.payment_method_id)?.label ?? op.payment_method_id;
                     const signed = op.kind === "deposit" ? op.amount : -op.amount;
 
+                    const kindLabel =
+                      op.kind === "deposit"
+                        ? (op.note ?? "").toLowerCase().includes("conferimento")
+                          ? "Conferimento"
+                          : "Deposito"
+                        : "Prelievo";
+
                     return (
                       <div key={op.id} className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
                         <div className="flex items-center justify-between gap-2">
                           <div className="text-xs text-zinc-400">{new Date(op.created_at).toLocaleString("it-IT")}</div>
-                          <button
-                            onClick={() => deleteCashOp(op.id)}
-                            className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
-                          >
+                          <button onClick={() => deleteCashOp(op.id)} className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700">
                             Elimina
                           </button>
                         </div>
 
                         <div className="mt-2 text-sm text-zinc-200">{partnerName}</div>
+                        <div className="text-xs text-zinc-400">{kindLabel}</div>
                         <div className="text-xs text-zinc-400">{pmLabel}</div>
+
                         <div className={`mt-1 text-sm font-semibold ${signClass(signed)}`}>
                           {signed >= 0 ? "+" : ""}
                           {euro(signed)}
@@ -945,18 +1035,13 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
           <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Prelievo/Deposito soci</h2>
-              <button
-                onClick={() => setOpenCash(false)}
-                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-              >
+              <button onClick={() => setOpenCash(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
                 Chiudi
               </button>
             </div>
 
             {cashUiErr && (
-              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-                {cashUiErr}
-              </div>
+              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">{cashUiErr}</div>
             )}
 
             <div className="mt-4 grid grid-cols-1 gap-3">
@@ -1012,9 +1097,7 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
                   {paymentMethodsForSelectedPartner
                     .filter((pm) => pm.label !== "__ESTERNO__")
                     .map((pm) => {
-                      const bal =
-                        pmBalanceByPersonAndMethod.get(`${selectedPartnerName}||${pm.label}`)?.balance ?? 0;
-
+                      const bal = pmBalanceByPersonAndMethod.get(`${selectedPartnerName}||${pm.label}`)?.balance ?? 0;
                       return (
                         <option key={pm.id} value={pm.id}>
                           {pm.label} (saldo {euro(bal)})
@@ -1032,200 +1115,233 @@ const gainReal = Number(r.gainProQuota ?? 0) + bonusNet;
                   placeholder="es. 500"
                   className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                 />
-                <div className="mt-1 text-xs text-zinc-400">
-                  Max {euro(Number(capitalProQuotaByPartnerId.get(cashPartnerId) ?? 0))}
-                </div>
+                <div className="mt-1 text-xs text-zinc-400">Max {euro(Number(capitalRealByPartnerId.get(cashPartnerId) ?? 0))}</div>
               </label>
 
               <label className="text-sm text-zinc-300">
                 Nota (opzionale)
-                <input
-                  value={cashNote}
-                  onChange={(e) => setCashNote(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
+                <input value={cashNote} onChange={(e) => setCashNote(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
               </label>
 
-              <button
-                onClick={submitCashOp}
-                className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-              >
+              <button onClick={submitCashOp} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
                 Conferma
               </button>
             </div>
           </div>
         </div>
       )}
-      {newPersonOpen && (
-  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-    <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Nuova persona</h2>
-        <button
-          onClick={() => setNewPersonOpen(false)}
-          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-        >
-          Chiudi
-        </button>
-      </div>
 
-      {newPersonErr && (
-        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          {newPersonErr}
-        </div>
-      )}
+      {/* MODAL: Nuovo socio */}
+      {openNewPartner && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Nuovo socio</h2>
+              <button onClick={() => setOpenNewPartner(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+                Chiudi
+              </button>
+            </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3">
-        <label className="text-sm text-zinc-300">
-          Nome persona
-          <input
-            value={newPersonName}
-            onChange={(e) => setNewPersonName(e.target.value)}
-            placeholder="es. Greta"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </label>
+            {npErr && (
+              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">{npErr}</div>
+            )}
 
-        <label className="text-sm text-zinc-300">
-          Metodo di pagamento (nome)
-          <input
-            value={newPersonMethod}
-            onChange={(e) => setNewPersonMethod(e.target.value)}
-            placeholder="es. PayPal Greta"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </label>
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <label className="text-sm text-zinc-300">
+                Nome nuovo socio (unico)
+                <input value={npName} onChange={(e) => setNpName(e.target.value)} placeholder="es. Luca" className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+              </label>
 
-        <label className="text-sm text-zinc-300">
-          Fee % (es. 0.05 = 5%, 0 = nessuna fee)
-          <input
-            value={newPersonFeePct}
-            onChange={(e) => setNewPersonFeePct(e.target.value)}
-            placeholder="0 oppure 0.05"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </label>
+              <label className="text-sm text-zinc-300">
+                Conferimento iniziale
+                <input value={npAmount} onChange={(e) => setNpAmount(e.target.value)} placeholder="es. 5000" className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+              </label>
 
-        <button
-          onClick={submitNewPerson}
-          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-        >
-          Crea
-        </button>
+              <label className="text-sm text-zinc-300">
+                Metodo di pagamento
+                <input value={npMethod} onChange={(e) => setNpMethod(e.target.value)} placeholder="es. PayPal Luca" className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+              </label>
 
-        <div className="text-xs text-zinc-500">
-          Nota: usa 0.05 per 5%. Se metti 0, la persona sarà senza fee.
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-{openFeeWithdraw && (
-  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-    <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Prelievo profitto persona</h2>
-        <button
-          onClick={() => setOpenFeeWithdraw(false)}
-          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-        >
-          Chiudi
-        </button>
-      </div>
+              <button onClick={submitNewPartner} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+                Crea socio
+              </button>
 
-      {feeWithdrawErr && (
-        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          {feeWithdrawErr}
-        </div>
-      )}
-
-      <div className="mt-4 grid grid-cols-1 gap-3">
-        <label className="text-sm text-zinc-300">
-          Importo
-          <input
-            value={feeWithdrawAmount}
-            onChange={(e) => setFeeWithdrawAmount(e.target.value)}
-            placeholder="es. 50"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-          <div className="mt-1 text-xs text-zinc-400">
-            Disponibile:{" "}
-            {euro(Number(peopleFeePanel.find((x) => x.person_id === feePersonId)?.fee_available ?? 0))}
+              <div className="text-xs text-zinc-500">Nota: il conferimento verrà caricato sul metodo e aumenterà capitale e conferimenti.</div>
+            </div>
           </div>
-        </label>
-
-        <label className="text-sm text-zinc-300">
-          Nota (opzionale)
-          <input
-            value={feeWithdrawNote}
-            onChange={(e) => setFeeWithdrawNote(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </label>
-
-        <button
-          onClick={submitFeeWithdraw}
-          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-        >
-          Conferma prelievo
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-
-{openFeeHistory && (
-  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-    <div className="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Storico prelievi</h2>
-        <button
-          onClick={() => setOpenFeeHistory(false)}
-          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-        >
-          Chiudi
-        </button>
-      </div>
-
-      {feeHistoryErr && (
-        <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          {feeHistoryErr}
         </div>
       )}
 
-      {feeHistoryLoading ? (
-        <div className="mt-4 text-sm text-zinc-400">Caricamento…</div>
-      ) : feeHistoryRows.length === 0 ? (
-        <div className="mt-4 text-sm text-zinc-500">Nessun prelievo.</div>
-      ) : (
-        <div className="mt-4 space-y-2">
-          {feeHistoryRows.map((w) => (
-            <div key={w.id} className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs text-zinc-400">
-                  {new Date(w.created_at).toLocaleString("it-IT")}
-                </div>
-                <button
-                  onClick={() => cancelFeeWithdrawal(w.id)}
-                  className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+      {/* MODAL: Uscita socio */}
+      {openExit && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Uscita socio</h2>
+              <button onClick={() => setOpenExit(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+                Chiudi
+              </button>
+            </div>
+
+            {exitErr && (
+              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">{exitErr}</div>
+            )}
+
+            <div className="mt-4 text-sm text-zinc-300">
+              Vuoi davvero eliminare <span className="font-semibold text-zinc-100">{exitPartnerName}</span>?
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <label className="text-sm text-zinc-300">
+                Metodo di pagamento (deve contenere esattamente il capitale reale)
+                <select
+                  value={exitPmId}
+                  onChange={(e) => setExitPmId(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  style={{ colorScheme: "dark" }}
                 >
-                  Annulla
+                  <option value="">Seleziona…</option>
+                  {paymentMethods
+                    .filter((pm) => {
+                      const p = people.find((x) => x.name === exitPartnerName);
+                      return pm.owner_person_id === p?.id && pm.label !== "__ESTERNO__";
+                    })
+                    .map((pm) => (
+                      <option key={pm.id} value={pm.id}>
+                        {pm.label}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <div className="flex items-center gap-2 mt-2">
+                <button onClick={confirmExitPartner} className="rounded-xl bg-red-800/80 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-700">
+                  Sì, esci
+                </button>
+                <button onClick={() => setOpenExit(false)} className="rounded-xl bg-zinc-800 px-4 py-2 text-sm font-semibold hover:bg-zinc-700">
+                  No
                 </button>
               </div>
 
-              <div className="mt-2 text-sm font-semibold text-zinc-100">
-                {euro(Number(w.amount ?? 0))}
-              </div>
-              {w.note && <div className="mt-1 text-xs text-zinc-400">{w.note}</div>}
+              <div className="text-xs text-zinc-500">L’uscita è consentita solo se il saldo del metodo è uguale (al centesimo) al capitale reale del socio.</div>
             </div>
-          ))}
+          </div>
         </div>
       )}
-    </div>
-  </div>
-)}
 
-</main>
+      {/* MODAL lender / fee modals */}
+      {newPersonOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Nuova persona</h2>
+              <button onClick={() => setNewPersonOpen(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+                Chiudi
+              </button>
+            </div>
+
+            {newPersonErr && (
+              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">{newPersonErr}</div>
+            )}
+
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <label className="text-sm text-zinc-300">
+                Nome persona
+                <input value={newPersonName} onChange={(e) => setNewPersonName(e.target.value)} placeholder="es. Greta" className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+              </label>
+
+              <label className="text-sm text-zinc-300">
+                Metodo di pagamento (nome)
+                <input value={newPersonMethod} onChange={(e) => setNewPersonMethod(e.target.value)} placeholder="es. PayPal Greta" className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+              </label>
+
+              <label className="text-sm text-zinc-300">
+                Fee % (es. 0.05 = 5%, 0 = nessuna fee)
+                <input value={newPersonFeePct} onChange={(e) => setNewPersonFeePct(e.target.value)} placeholder="0 oppure 0.05" className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+              </label>
+
+              <button onClick={submitNewPerson} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+                Crea
+              </button>
+
+              <div className="text-xs text-zinc-500">Nota: usa 0.05 per 5%. Se metti 0, la persona sarà senza fee.</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openFeeWithdraw && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Prelievo profitto persona</h2>
+              <button onClick={() => setOpenFeeWithdraw(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+                Chiudi
+              </button>
+            </div>
+
+            {feeWithdrawErr && (
+              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">{feeWithdrawErr}</div>
+            )}
+
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <label className="text-sm text-zinc-300">
+                Importo
+                <input value={feeWithdrawAmount} onChange={(e) => setFeeWithdrawAmount(e.target.value)} placeholder="es. 50" className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                <div className="mt-1 text-xs text-zinc-400">Disponibile: {euro(Number(peopleFeePanel.find((x) => x.person_id === feePersonId)?.fee_available ?? 0))}</div>
+              </label>
+
+              <label className="text-sm text-zinc-300">
+                Nota (opzionale)
+                <input value={feeWithdrawNote} onChange={(e) => setFeeWithdrawNote(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+              </label>
+
+              <button onClick={submitFeeWithdraw} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+                Conferma prelievo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openFeeHistory && (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
+          <div className="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Storico prelievi</h2>
+              <button onClick={() => setOpenFeeHistory(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+                Chiudi
+              </button>
+            </div>
+
+            {feeHistoryErr && (
+              <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">{feeHistoryErr}</div>
+            )}
+
+            {feeHistoryLoading ? (
+              <div className="mt-4 text-sm text-zinc-400">Caricamento…</div>
+            ) : feeHistoryRows.length === 0 ? (
+              <div className="mt-4 text-sm text-zinc-500">Nessun prelievo.</div>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {feeHistoryRows.map((w) => (
+                  <div key={w.id} className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs text-zinc-400">{new Date(w.created_at).toLocaleString("it-IT")}</div>
+                      <button onClick={() => cancelFeeWithdrawal(w.id)} className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700">
+                        Annulla
+                      </button>
+                    </div>
+
+                    <div className="mt-2 text-sm font-semibold text-zinc-100">{euro(Number(w.amount ?? 0))}</div>
+                    {w.note && <div className="mt-1 text-xs text-zinc-400">{w.note}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
