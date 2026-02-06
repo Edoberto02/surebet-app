@@ -16,11 +16,21 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
     <div className={pageClass}>
       {/* Top bar SOLO in day mode */}
       {isDay && (
-        <div className="sticky top-0 z-50 border-b border-blue-950/20 bg-blue-900">
-          <div className="mx-auto max-w-6xl px-6 py-3 flex items-center justify-between">
-            <div className="text-blue-50 font-semibold tracking-wide">
-              SureBet Team
-            </div>
+  <div className="sticky top-0 z-50 border-b border-blue-950/30 bg-blue-800">
+    <div className="px-6 py-3 flex items-center justify-between">
+      <div
+        className="
+          text-blue-50
+          text-2xl
+          font-semibold
+          tracking-widest
+          uppercase
+        "
+        style={{ fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}
+      >
+        SureBet Team
+      </div>
+
 
             <button
               type="button"
