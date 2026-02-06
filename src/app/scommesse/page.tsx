@@ -580,50 +580,45 @@ if (playersUnique.length > 0) {
   async function setLegStatus(legId: string, status: "open" | "win" | "loss") {
   setMsg("");
 
-  // Trovo la leg corrente (per capire a quale bet appartiene)
   const current = legs.find((x) => x.id === legId);
   if (!current) return;
 
   const betId = current.bet_id;
 
-  // Aggiorno su Supabase
+  // 1) aggiorna status leg
   const { error } = await supabase.from("bet_legs").update({ status }).eq("id", legId);
   if (error) return setMsg(error.message);
 
-  // Aggiorno subito lo stato in UI (senza refresh totale)
+  // 2) aggiorna UI subito
   setLegs((prev) => prev.map((x) => (x.id === legId ? { ...x, status } : x)));
 
-  // Capisco se ORA la bet è chiusa (cioè nessuna leg è più open)
-  const nextLegsForBet = legs
-    .filter((x) => x.bet_id === betId)
-    .map((x) => (x.id === legId ? { ...x, status } : x));
+  // 3) VERIFICA CHIUSURA SUL DB (fonte di verità)
+  const { count, error: countErr } = await supabase
+    .from("bet_legs")
+    .select("id", { count: "exact", head: true })
+    .eq("bet_id", betId)
+    .eq("status", "open");
 
-  const isNowClosed = nextLegsForBet.every((x) => x.status !== "open");
+  if (countErr) return setMsg(countErr.message);
 
-  // Se è chiusa, allora faccio il refresh completo UNA VOLTA SOLA
-  // e mantengo la posizione scroll (così non torna su)
+  const isNowClosed = (count ?? 0) === 0;
+
   if (isNowClosed) {
-  const y = window.scrollY;
+    const y = window.scrollY;
 
-  // ✅ 1) Salva la ripartizione nel DB (bonus o pro-quota)
-  const { error: allocErr } = await supabase.rpc("compute_bet_allocations", {
-    p_bet_id: betId,
-  });
-  if (allocErr) return setMsg(allocErr.message);
-  const { error: feeErr } = await supabase.rpc("compute_bet_person_fees", {
-  p_bet_id: betId,
-});
-if (feeErr) return setMsg(feeErr.message);
+    // 4) calcolo bonus/malus + allocazioni (scrive su DB)
+    const { error: allocErr } = await supabase.rpc("compute_bet_allocations", { p_bet_id: betId });
+    if (allocErr) return setMsg(allocErr.message);
 
+    const { error: feeErr } = await supabase.rpc("compute_bet_person_fees", { p_bet_id: betId });
+    if (feeErr) return setMsg(feeErr.message);
 
-  // ✅ 2) Refresh completo UNA VOLTA SOLA
-  await loadAll();
-
-  // ✅ 3) Ripristino scroll
-  requestAnimationFrame(() => window.scrollTo(0, y));
+    // 5) refresh dati
+    await loadAll();
+    requestAnimationFrame(() => window.scrollTo(0, y));
+  }
 }
 
-}
 
 
   async function deleteBet(betId: string) {
