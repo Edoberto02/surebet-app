@@ -700,15 +700,15 @@ const bonusNetByPartnerId = useMemo(() => {
                   </tr>
                 </thead>
                 <colgroup>
-  <col className="w-[140px]" />  {/* Socio */}
-  <col className="w-[150px]" />  {/* Capitale iniziale */}
-  <col className="w-[130px]" />  {/* Prelievi/Depositi */}
-  <col className="w-[90px]" />   {/* Quota */}
-  <col className="w-[140px]" />  {/* Capitale pro-quota */}
-  <col className="w-[140px]" />  {/* Capitale reale */}
-  <col className="w-[140px]" />  {/* Guadagno pro-quota */}
-  <col className="w-[120px]" />  {/* Bonus/Malus */}
-  <col className="w-[140px]" />  {/* Guadagno reale */}
+  <col className="w-[140px]" />
+  <col className="w-[150px]" />
+  <col className="w-[130px]" />
+  <col className="w-[90px]" />
+  <col className="w-[140px]" />
+  <col className="w-[140px]" />
+  <col className="w-[140px]" />
+  <col className="w-[120px]" />
+  <col className="w-[140px]" />
 </colgroup>
 
                 <tbody>

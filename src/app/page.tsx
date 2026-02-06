@@ -202,10 +202,6 @@ export default function Page() {
   // modal add bookmaker
   const [openAddBookmaker, setOpenAddBookmaker] = useState(false);
   const [newBookmakerName, setNewBookmakerName] = useState("");
-  // ✅ modal add person (non socia)
-const [openAddPerson, setOpenAddPerson] = useState(false);
-const [newPersonName, setNewPersonName] = useState("");
-
 
   const [person, _setPerson] = useState("");
   const personRef = useRef<string>("");
@@ -330,14 +326,13 @@ const [newPersonName, setNewPersonName] = useState("");
   }, [accounts, person]);
 
   const methodOptionsForPerson: Option[] = useMemo(() => {
-  if (!person) return [];
-  return paymentMethods
-    .filter((pm) => pm.owner_name === person && !!pm.id)
-    .filter((pm) => pm.label !== "__ESTERNO__")
-    .map((pm) => ({ id: pm.id, label: `${pm.label} (${pm.owner_name})` }))
-    .sort((x, y) => x.label.localeCompare(y.label));
-}, [paymentMethods, person]);
-
+    if (!person) return [];
+    return paymentMethods
+      .filter((pm) => pm.owner_name === person && !!pm.id)
+      .filter((pm) => pm.label !== "__ESTERNO__")
+      .map((pm) => ({ id: pm.id, label: `${pm.label} (${pm.owner_name})` }))
+      .sort((x, y) => x.label.localeCompare(y.label));
+  }, [paymentMethods, person]);
 
   const allAccountOptions: Option[] = useMemo(() => {
     return accounts
@@ -346,12 +341,11 @@ const [newPersonName, setNewPersonName] = useState("");
   }, [accounts]);
 
   const allMethodOptions: Option[] = useMemo(() => {
-  return paymentMethods
-    .filter((pm) => pm.label !== "__ESTERNO__")
-    .map((pm) => ({ id: pm.id, label: `${pm.label} (${pm.owner_name})` }))
-    .sort((x, y) => x.label.localeCompare(y.label));
-}, [paymentMethods]);
-
+    return paymentMethods
+      .filter((pm) => pm.label !== "__ESTERNO__")
+      .map((pm) => ({ id: pm.id, label: `${pm.label} (${pm.owner_name})` }))
+      .sort((x, y) => x.label.localeCompare(y.label));
+  }, [paymentMethods]);
 
   const accountLabelById = useMemo(() => {
     const m = new Map<string, string>();
@@ -364,18 +358,18 @@ const [newPersonName, setNewPersonName] = useState("");
     for (const pm of paymentMethods) m.set(pm.id, `${pm.label} (${pm.owner_name})`);
     return m;
   }, [paymentMethods]);
+
   const accountById = useMemo(() => {
-  const m = new Map<string, AccountRow>();
-  for (const a of accounts) m.set(a.id, a);
-  return m;
-}, [accounts]);
+    const m = new Map<string, AccountRow>();
+    for (const a of accounts) m.set(a.id, a);
+    return m;
+  }, [accounts]);
 
-const methodById = useMemo(() => {
-  const m = new Map<string, PaymentMethodRow>();
-  for (const pm of paymentMethods) m.set(pm.id, pm);
-  return m;
-}, [paymentMethods]);
-
+  const methodById = useMemo(() => {
+    const m = new Map<string, PaymentMethodRow>();
+    for (const pm of paymentMethods) m.set(pm.id, pm);
+    return m;
+  }, [paymentMethods]);
 
   useEffect(() => {
     setFromMethodId("");
@@ -450,54 +444,54 @@ const methodById = useMemo(() => {
 
     await loadAll(false);
   }
+
   function BookmakerLogo({ accountId }: { accountId: string | null }) {
-  if (!accountId) return <span className="text-zinc-600">—</span>;
+    if (!accountId) return <span className="text-zinc-600">—</span>;
 
-  const acc = accountById.get(accountId);
-  if (!acc) return <span className="text-zinc-600">—</span>;
+    const acc = accountById.get(accountId);
+    if (!acc) return <span className="text-zinc-600">—</span>;
 
-  const slug = slugifyBookmaker(acc.bookmaker_name);
+    const slug = slugifyBookmaker(acc.bookmaker_name);
 
-  return (
-    <div className="inline-flex items-center gap-2">
-      <img
-        src={`/bookmakers/${slug}.png`}
-        alt={acc.bookmaker_name}
-        className="h-6 w-auto max-w-[110px] object-contain"
-        onError={(e) => {
-          (e.currentTarget as HTMLImageElement).style.display = "none";
-        }}
-      />
-      <div className="text-xs text-zinc-300">
-        {acc.bookmaker_name}
-        <span className="text-zinc-500"> · {acc.person_name}</span>
-      </div>
-    </div>
-  );
-}
-
-function MethodBox({ methodId }: { methodId: string | null }) {
-  if (!methodId) return <span className="text-zinc-600">—</span>;
-
-  const pm = methodById.get(methodId);
-  if (!pm) return <span className="text-zinc-600">—</span>;
-
-  // ✅ Nascondiamo __ESTERNO__ anche qui (per sicurezza)
-  if (pm.label === "__ESTERNO__") return <span className="text-zinc-600">—</span>;
-
-  return (
-    <div className="inline-block rounded-lg border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs">
-      <div className="text-zinc-300">{pm.label}</div>
-      <div className={`${balanceClass(Number(pm.balance ?? 0))}`}>{euro(Number(pm.balance ?? 0))}</div>
-      {!isZero(Number(pm.pending_incoming ?? 0)) && (
-        <div className={`${pendingClass(Number(pm.pending_incoming ?? 0))}`}>
-          in transito {euro(Number(pm.pending_incoming ?? 0))}
+    return (
+      <div className="inline-flex items-center gap-2">
+        <img
+          src={`/bookmakers/${slug}.png`}
+          alt={acc.bookmaker_name}
+          className="h-6 w-auto max-w-[110px] object-contain"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = "none";
+          }}
+        />
+        <div className="text-xs text-zinc-300">
+          {acc.bookmaker_name}
+          <span className="text-zinc-500"> · {acc.person_name}</span>
         </div>
-      )}
-    </div>
-  );
-}
+      </div>
+    );
+  }
 
+  function MethodBox({ methodId }: { methodId: string | null }) {
+    if (!methodId) return <span className="text-zinc-600">—</span>;
+
+    const pm = methodById.get(methodId);
+    if (!pm) return <span className="text-zinc-600">—</span>;
+
+    // ✅ Nascondiamo __ESTERNO__ anche qui (per sicurezza)
+    if (pm.label === "__ESTERNO__") return <span className="text-zinc-600">—</span>;
+
+    return (
+      <div className="inline-block rounded-lg border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs">
+        <div className="text-zinc-300">{pm.label}</div>
+        <div className={`${balanceClass(Number(pm.balance ?? 0))}`}>{euro(Number(pm.balance ?? 0))}</div>
+        {!isZero(Number(pm.pending_incoming ?? 0)) && (
+          <div className={`${pendingClass(Number(pm.pending_incoming ?? 0))}`}>
+            in transito {euro(Number(pm.pending_incoming ?? 0))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   async function insertAdjustment() {
     setErrorMsg("");
@@ -544,24 +538,17 @@ function MethodBox({ methodId }: { methodId: string | null }) {
     setNewBookmakerName("");
     await loadAll(false);
   }
-  async function addPerson() {
-  setErrorMsg("");
-  const name = newPersonName.trim();
-  if (!name) return setErrorMsg("Inserisci il nome della persona");
 
-  const { error } = await supabase.rpc("add_person_accounts_with_default_paypal", {
-    p_person_name: name,
-  });
-  if (error) return setErrorMsg(error.message);
+  // ✅ RIMOSSO: addPerson + modal + stato collegato (tasto "+ persona" eliminato)
 
-  setOpenAddPerson(false);
-  setNewPersonName("");
-  await loadAll(false);
-}
-
-
-  const adjGrouped = useMemo(() => groupMonthDay(adjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0)), [adjustments]);
-  const baselineGrouped = useMemo(() => groupMonthDay(baselineAdjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0)), [baselineAdjustments]);
+  const adjGrouped = useMemo(
+    () => groupMonthDay(adjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0)),
+    [adjustments]
+  );
+  const baselineGrouped = useMemo(
+    () => groupMonthDay(baselineAdjustments, (x) => x.created_at, (x) => Number(x.amount ?? 0)),
+    [baselineAdjustments]
+  );
   const txGrouped = useMemo(() => groupMonthDay(txs, (x) => x.created_at, (x) => Number(x.amount ?? 0)), [txs]);
 
   return (
@@ -569,22 +556,13 @@ function MethodBox({ methodId }: { methodId: string | null }) {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Saldi</h1>
         <div className="flex items-center gap-2">
-  <button
-    onClick={() => setOpenAddPerson(true)}
-    className="rounded-xl bg-zinc-800 px-3 py-2 text-sm font-semibold hover:bg-zinc-700"
-    title="Aggiungi persona (solo account)"
-  >
-    + Persona
-  </button>
-
-  <button
-    onClick={() => loadAll(false)}
-    className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-  >
-    Aggiorna
-  </button>
-</div>
-
+          <button
+            onClick={() => loadAll(false)}
+            className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+          >
+            Aggiorna
+          </button>
+        </div>
       </div>
 
       {errorMsg && (
@@ -601,14 +579,18 @@ function MethodBox({ methodId }: { methodId: string | null }) {
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Bookmaker</h2>
-              <div className="text-sm text-zinc-400">Persone: {people.length} — Bookmaker: {bookmakers.length}</div>
+              <div className="text-sm text-zinc-400">
+                Persone: {people.length} — Bookmaker: {bookmakers.length}
+              </div>
             </div>
 
             <div className="mt-4 overflow-auto rounded-xl border border-zinc-800">
               <table className="min-w-[900px] w-full border-collapse">
                 <thead className="sticky top-0 bg-zinc-900">
                   <tr>
-                    <th className="sticky left-0 z-10 bg-zinc-900 px-3 py-2 text-left text-sm font-semibold text-zinc-200">Persona</th>
+                    <th className="sticky left-0 z-10 bg-zinc-900 px-3 py-2 text-left text-sm font-semibold text-zinc-200">
+                      Persona
+                    </th>
                     {bookmakers.map((b) => (
                       <th key={b.name} className="px-3 py-2 text-center text-sm font-semibold text-zinc-200">
                         <img
@@ -628,10 +610,16 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                 <tbody>
                   {people.map((p) => (
                     <tr key={p.name} className="border-t border-zinc-800">
-                      <td className="sticky left-0 z-10 bg-zinc-950/60 px-3 py-2 text-sm font-medium text-zinc-100">{p.name}</td>
+                      <td className="sticky left-0 z-10 bg-zinc-950/60 px-3 py-2 text-sm font-medium text-zinc-100">
+                        {p.name}
+                      </td>
                       {bookmakers.map((b) => {
                         const v = accountMap.get(`${p.name}||${b.name}`) ?? 0;
-                        return <td key={b.name} className={`px-3 py-2 text-sm ${balanceClass(v)}`}>{euro(v)}</td>;
+                        return (
+                          <td key={b.name} className={`px-3 py-2 text-sm ${balanceClass(v)}`}>
+                            {euro(v)}
+                          </td>
+                        );
                       })}
                     </tr>
                   ))}
@@ -664,27 +652,33 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                         <td className="px-3 py-2 text-sm font-medium text-zinc-100">{p.name}</td>
                         <td className={`px-3 py-2 text-sm ${balanceClass(t.saldo)}`}>{euro(t.saldo)}</td>
                         <td className={`px-3 py-2 text-sm ${pendingClass(t.transito)}`}>{euro(t.transito)}</td>
-                        <td className={`px-3 py-2 text-sm ${balanceClass(t.saldo + t.transito)}`}>{euro(t.saldo + t.transito)}</td>
+                        <td className={`px-3 py-2 text-sm ${balanceClass(t.saldo + t.transito)}`}>
+                          {euro(t.saldo + t.transito)}
+                        </td>
                         <td className="px-3 py-2 text-sm text-zinc-200">
                           {list.length === 0 ? (
                             <span className="text-zinc-600">—</span>
                           ) : (
                             <div className="flex flex-wrap gap-2">
-  {list
-    .filter((pm) => pm.label !== "__ESTERNO__")
-    .map((pm) => (
-      <div key={pm.id} className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs">
-        <div className="text-zinc-300">{pm.label}</div>
-        <div className={`${balanceClass(Number(pm.balance ?? 0))}`}>{euro(Number(pm.balance ?? 0))}</div>
-        {!isZero(Number(pm.pending_incoming ?? 0)) && (
-          <div className={`${pendingClass(Number(pm.pending_incoming ?? 0))}`}>
-            in transito {euro(Number(pm.pending_incoming ?? 0))}
-          </div>
-        )}
-      </div>
-    ))}
-</div>
-
+                              {list
+                                .filter((pm) => pm.label !== "__ESTERNO__")
+                                .map((pm) => (
+                                  <div
+                                    key={pm.id}
+                                    className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs"
+                                  >
+                                    <div className="text-zinc-300">{pm.label}</div>
+                                    <div className={`${balanceClass(Number(pm.balance ?? 0))}`}>
+                                      {euro(Number(pm.balance ?? 0))}
+                                    </div>
+                                    {!isZero(Number(pm.pending_incoming ?? 0)) && (
+                                      <div className={`${pendingClass(Number(pm.pending_incoming ?? 0))}`}>
+                                        in transito {euro(Number(pm.pending_incoming ?? 0))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -724,15 +718,26 @@ function MethodBox({ methodId }: { methodId: string | null }) {
 
                 <label className="text-sm text-zinc-300">
                   Importo (+/-)
-                  <input value={adjAmount} onChange={(e) => setAdjAmount(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                  <input
+                    value={adjAmount}
+                    onChange={(e) => setAdjAmount(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  />
                 </label>
 
                 <label className="text-sm text-zinc-300">
                   Nota (opzionale)
-                  <input value={adjNote} onChange={(e) => setAdjNote(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                  <input
+                    value={adjNote}
+                    onChange={(e) => setAdjNote(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  />
                 </label>
 
-                <button onClick={insertAdjustment} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+                <button
+                  onClick={insertAdjustment}
+                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+                >
                   Salva rettifica
                 </button>
               </div>
@@ -749,7 +754,8 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                         <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                           <div className="text-sm font-semibold text-zinc-100">{monthLabel(m.monthStart)}</div>
                           <div className={`text-sm font-semibold ${balanceClass(m.monthTotal)}`}>
-                            {m.monthTotal >= 0 ? "+" : ""}{euro(m.monthTotal)}
+                            {m.monthTotal >= 0 ? "+" : ""}
+                            {euro(m.monthTotal)}
                           </div>
                         </summary>
 
@@ -759,7 +765,8 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                               <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                                 <div className="text-sm text-zinc-100">{d.dayISO}</div>
                                 <div className={`text-sm font-semibold ${balanceClass(d.dayTotal)}`}>
-                                  {d.dayTotal >= 0 ? "+" : ""}{euro(d.dayTotal)}
+                                  {d.dayTotal >= 0 ? "+" : ""}
+                                  {euro(d.dayTotal)}
                                 </div>
                               </summary>
 
@@ -773,18 +780,27 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                                   return (
                                     <div key={a.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
                                       <div className="flex items-center justify-between gap-2">
-                                        <div className="text-xs text-zinc-400">{new Date(a.created_at).toLocaleString("it-IT")}</div>
-                                        <button onClick={() => deleteAdjustment(a.id)} className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700">
+                                        <div className="text-xs text-zinc-400">
+                                          {new Date(a.created_at).toLocaleString("it-IT")}
+                                        </div>
+                                        <button
+                                          onClick={() => deleteAdjustment(a.id)}
+                                          className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+                                        >
                                           Elimina
                                         </button>
                                       </div>
 
                                       <div className="mt-2 text-sm text-zinc-200">
-                                        <span className="text-zinc-400">{a.target_type === "account" ? "Account" : "Metodo"}:</span> {label}
+                                        <span className="text-zinc-400">
+                                          {a.target_type === "account" ? "Account" : "Metodo"}:
+                                        </span>{" "}
+                                        {label}
                                       </div>
 
                                       <div className={`mt-1 text-sm font-semibold ${balanceClass(a.amount)}`}>
-                                        {a.amount >= 0 ? "+" : ""}{euro(a.amount)}
+                                        {a.amount >= 0 ? "+" : ""}
+                                        {euro(a.amount)}
                                       </div>
 
                                       {a.note && <div className="mt-1 text-xs text-zinc-400">{a.note}</div>}
@@ -821,7 +837,8 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                             <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                               <div className="text-sm text-zinc-100">{monthLabel(m.monthStart)}</div>
                               <div className={`text-sm font-semibold ${balanceClass(m.monthTotal)}`}>
-                                {m.monthTotal >= 0 ? "+" : ""}{euro(m.monthTotal)}
+                                {m.monthTotal >= 0 ? "+" : ""}
+                                {euro(m.monthTotal)}
                               </div>
                             </summary>
 
@@ -831,7 +848,8 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                                   <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                                     <div className="text-sm text-zinc-100">{d.dayISO}</div>
                                     <div className={`text-sm font-semibold ${balanceClass(d.dayTotal)}`}>
-                                      {d.dayTotal >= 0 ? "+" : ""}{euro(d.dayTotal)}
+                                      {d.dayTotal >= 0 ? "+" : ""}
+                                      {euro(d.dayTotal)}
                                     </div>
                                   </summary>
 
@@ -844,12 +862,18 @@ function MethodBox({ methodId }: { methodId: string | null }) {
 
                                       return (
                                         <div key={a.id} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
-                                          <div className="text-xs text-zinc-400">{new Date(a.created_at).toLocaleString("it-IT")}</div>
+                                          <div className="text-xs text-zinc-400">
+                                            {new Date(a.created_at).toLocaleString("it-IT")}
+                                          </div>
                                           <div className="mt-2 text-sm text-zinc-200">
-                                            <span className="text-zinc-400">{a.target_type === "account" ? "Account" : "Metodo"}:</span> {label}
+                                            <span className="text-zinc-400">
+                                              {a.target_type === "account" ? "Account" : "Metodo"}:
+                                            </span>{" "}
+                                            {label}
                                           </div>
                                           <div className={`mt-1 text-sm font-semibold ${balanceClass(a.amount)}`}>
-                                            {a.amount >= 0 ? "+" : ""}{euro(a.amount)}
+                                            {a.amount >= 0 ? "+" : ""}
+                                            {euro(a.amount)}
                                           </div>
                                           {a.note && <div className="mt-1 text-xs text-zinc-400">{a.note}</div>}
                                         </div>
@@ -897,37 +921,65 @@ function MethodBox({ methodId }: { methodId: string | null }) {
 
                 <label className="text-sm text-zinc-300">
                   Importo
-                  <input value={txAmount} onChange={(e) => setTxAmount(e.target.value)} className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                  <input
+                    value={txAmount}
+                    onChange={(e) => setTxAmount(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  />
                 </label>
 
                 <label className="text-sm text-zinc-300">
                   Persona
-                  <select value={person} onChange={(e) => setPersonSafe(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" style={{ colorScheme: "dark" }}>
-                    {people.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                  <select
+                    value={person}
+                    onChange={(e) => setPersonSafe(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                    style={{ colorScheme: "dark" }}
+                  >
+                    {people.map((p) => (
+                      <option key={p.name} value={p.name}>
+                        {p.name}
+                      </option>
+                    ))}
                   </select>
                 </label>
 
                 {txKind === "withdraw" ? (
                   <label className="text-sm text-zinc-300">
                     Stato prelievo
-                    <select value={txStatus} onChange={(e) => setTxStatus(e.target.value as TxStatus)}
-                      className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" style={{ colorScheme: "dark" }}>
+                    <select
+                      value={txStatus}
+                      onChange={(e) => setTxStatus(e.target.value as TxStatus)}
+                      className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                      style={{ colorScheme: "dark" }}
+                    >
                       <option value="pending">In transito</option>
                       <option value="completed">Arrivato</option>
                     </select>
                   </label>
-                ) : <div />}
+                ) : (
+                  <div />
+                )}
 
                 <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
                   <div className="text-sm font-semibold text-zinc-200">DA</div>
                   {txKind === "withdraw" ? (
                     <div className="mt-2">
-                      <SearchSelect label="Account bookmaker" value={fromAccountId} options={accountOptionsForPerson} onChange={setFromAccountId} />
+                      <SearchSelect
+                        label="Account bookmaker"
+                        value={fromAccountId}
+                        options={accountOptionsForPerson}
+                        onChange={setFromAccountId}
+                      />
                     </div>
                   ) : (
                     <div className="mt-2">
-                      <SearchSelect label="Metodo di pagamento" value={fromMethodId} options={methodOptionsForPerson} onChange={setFromMethodId} />
+                      <SearchSelect
+                        label="Metodo di pagamento"
+                        value={fromMethodId}
+                        options={methodOptionsForPerson}
+                        onChange={setFromMethodId}
+                      />
                     </div>
                   )}
                 </div>
@@ -935,28 +987,48 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                 <div className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
                   <div className="text-sm font-semibold text-zinc-200">A</div>
                   {txKind === "deposit" ? (
-  <div className="mt-2">
-    <SearchSelect label="Account bookmaker" value={toAccountId} options={accountOptionsForPerson} onChange={setToAccountId} />
-  </div>
-) : txKind === "transfer" ? (
-  <div className="mt-2">
-    <SearchSelect label="Metodo di pagamento" value={toMethodId} options={allMethodOptions} onChange={setToMethodId} />
-  </div>
-) : (
-  <div className="mt-2">
-    <SearchSelect label="Metodo di pagamento" value={toMethodId} options={methodOptionsForPerson} onChange={setToMethodId} />
-  </div>
-)}
-
+                    <div className="mt-2">
+                      <SearchSelect
+                        label="Account bookmaker"
+                        value={toAccountId}
+                        options={accountOptionsForPerson}
+                        onChange={setToAccountId}
+                      />
+                    </div>
+                  ) : txKind === "transfer" ? (
+                    <div className="mt-2">
+                      <SearchSelect
+                        label="Metodo di pagamento"
+                        value={toMethodId}
+                        options={allMethodOptions}
+                        onChange={setToMethodId}
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <SearchSelect
+                        label="Metodo di pagamento"
+                        value={toMethodId}
+                        options={methodOptionsForPerson}
+                        onChange={setToMethodId}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <label className="text-sm text-zinc-300">
                   Nota (opzionale)
-                  <input value={txNote} onChange={(e) => setTxNote(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                  <input
+                    value={txNote}
+                    onChange={(e) => setTxNote(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  />
                 </label>
 
-                <button onClick={insertTransaction} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+                <button
+                  onClick={insertTransaction}
+                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+                >
                   Salva transazione
                 </button>
               </div>
@@ -990,56 +1062,61 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                                       <div className="text-xs text-zinc-400">{new Date(t.created_at).toLocaleString("it-IT")}</div>
                                       <div className="flex items-center gap-2">
                                         {t.tx_kind === "withdraw" && t.status === "pending" ? (
-                                          <button onClick={() => markWithdrawalArrived(t.id)} className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold hover:bg-emerald-600">
+                                          <button
+                                            onClick={() => markWithdrawalArrived(t.id)}
+                                            className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold hover:bg-emerald-600"
+                                          >
                                             Arrivato ✅
                                           </button>
                                         ) : (
                                           <span className="text-zinc-600 text-xs">—</span>
                                         )}
-                                        <button onClick={() => deleteTransaction(t.id)} className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700">
+                                        <button
+                                          onClick={() => deleteTransaction(t.id)}
+                                          className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
+                                        >
                                           Elimina
                                         </button>
                                       </div>
                                     </div>
+
                                     <div className="mt-2 text-sm text-zinc-200">
-  <span className="text-zinc-400">Tipo:</span> {t.tx_kind}{" "}
-  <span className="text-zinc-400">— Stato:</span> {t.status}
-</div>
+                                      <span className="text-zinc-400">Tipo:</span> {t.tx_kind}{" "}
+                                      <span className="text-zinc-400">— Stato:</span> {t.status}
+                                    </div>
 
-{/* Dettaglio DA → A */}
-{t.tx_kind === "deposit" && (
-  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
-    <span className="text-zinc-400">Da:</span>
-    <MethodBox methodId={t.from_payment_method_id} />
-    <span className="text-zinc-400">→ A:</span>
-    <BookmakerLogo accountId={t.to_account_id} />
-  </div>
-)}
+                                    {/* Dettaglio DA → A */}
+                                    {t.tx_kind === "deposit" && (
+                                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
+                                        <span className="text-zinc-400">Da:</span>
+                                        <MethodBox methodId={t.from_payment_method_id} />
+                                        <span className="text-zinc-400">→ A:</span>
+                                        <BookmakerLogo accountId={t.to_account_id} />
+                                      </div>
+                                    )}
 
+                                    {t.tx_kind === "withdraw" && (
+                                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
+                                        <span className="text-zinc-400">Da:</span>
+                                        <BookmakerLogo accountId={t.from_account_id} />
+                                        <span className="text-zinc-400">→ A:</span>
+                                        <MethodBox methodId={t.to_payment_method_id} />
+                                      </div>
+                                    )}
 
-{t.tx_kind === "withdraw" && (
-  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
-    <span className="text-zinc-400">Da:</span>
-    <BookmakerLogo accountId={t.from_account_id} />
-    <span className="text-zinc-400">→ A:</span>
-    <MethodBox methodId={t.to_payment_method_id} />
-  </div>
-)}
+                                    {t.tx_kind === "transfer" && (
+                                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
+                                        <span className="text-zinc-400">Da:</span>
+                                        <MethodBox methodId={t.from_payment_method_id} />
+                                        <span className="text-zinc-400">→ A:</span>
+                                        <MethodBox methodId={t.to_payment_method_id} />
+                                      </div>
+                                    )}
 
-
-{t.tx_kind === "transfer" && (
-  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-200">
-    <span className="text-zinc-400">Da:</span>
-    <MethodBox methodId={t.from_payment_method_id} />
-    <span className="text-zinc-400">→ A:</span>
-    <MethodBox methodId={t.to_payment_method_id} />
-  </div>
-)}
-
-
-<div className="mt-1 text-sm font-semibold text-zinc-100">Importo: {euro(t.amount)}</div>
-{t.note && <div className="mt-1 text-xs text-zinc-400">{t.note}</div>}
-
+                                    <div className="mt-1 text-sm font-semibold text-zinc-100">
+                                      Importo: {euro(t.amount)}
+                                    </div>
+                                    {t.note && <div className="mt-1 text-xs text-zinc-400">{t.note}</div>}
                                   </div>
                                 ))}
                               </div>
@@ -1062,7 +1139,10 @@ function MethodBox({ methodId }: { methodId: string | null }) {
           <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Aggiungi bookmaker</h2>
-              <button onClick={() => setOpenAddBookmaker(false)} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
+              <button
+                onClick={() => setOpenAddBookmaker(false)}
+                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+              >
                 Chiudi
               </button>
             </div>
@@ -1078,53 +1158,16 @@ function MethodBox({ methodId }: { methodId: string | null }) {
                 />
               </label>
 
-              <button onClick={addBookmaker} className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+              <button
+                onClick={addBookmaker}
+                className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+              >
                 Aggiungi
               </button>
             </div>
           </div>
         </div>
       )}
-      {/* MODAL add person */}
-{openAddPerson && (
-  <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-    <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Aggiungi persona (account)</h2>
-        <button
-          onClick={() => setOpenAddPerson(false)}
-          className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
-        >
-          Chiudi
-        </button>
-      </div>
-
-      <div className="mt-4 grid gap-3">
-        <label className="text-sm text-zinc-300">
-          Nome persona
-          <input
-            value={newPersonName}
-            onChange={(e) => setNewPersonName(e.target.value)}
-            placeholder="es. Giorgia"
-            className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </label>
-
-        <button
-          onClick={addPerson}
-          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-        >
-          Crea persona
-        </button>
-
-        <div className="text-xs text-zinc-500">
-          Crea la persona, tutti gli account bookmaker e il metodo PayPal predefinito.
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
     </main>
   );
 }
