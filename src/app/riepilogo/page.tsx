@@ -464,21 +464,31 @@ async function deleteLenderPerson(personId: string) {
     return m;
   }, [betLegs]);
   // Profit per bet (solo bet CHIUSE) → Map<bet_id, profit>
+// ✅ calcolato per TUTTE le bet che hanno allocazioni, anche se "bets" è filtrata
 const profitByBetId = useMemo(() => {
   const m = new Map<string, number>();
-  for (const b of bets) {
-    const legs = legsByBet.get(b.id) ?? [];
+
+  const betIds = Array.from(new Set(betAllocs.map((x) => x.bet_id)));
+
+  for (const betId of betIds) {
+    const legs = legsByBet.get(betId) ?? [];
     if (legs.length === 0) continue;
 
     const isClosed = legs.every((x) => x.status !== "open");
     if (!isClosed) continue;
 
     const stakeTotal = legs.reduce((s, x) => s + Number(x.stake ?? 0), 0);
-    const payoutTotal = legs.reduce((s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0), 0);
-    m.set(b.id, payoutTotal - stakeTotal);
+    const payoutTotal = legs.reduce(
+      (s, x) => s + (x.status === "win" ? Number(x.stake ?? 0) * Number(x.odds ?? 0) : 0),
+      0
+    );
+
+    m.set(betId, payoutTotal - stakeTotal);
   }
+
   return m;
-}, [bets, legsByBet]);
+}, [betAllocs, legsByBet]);
+
 
 // Quota per socio → Map<partner_id, quota>
 const quotaByPartnerId = useMemo(() => {
