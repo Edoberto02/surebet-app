@@ -19,17 +19,16 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
   <div className="sticky top-0 z-50 border-b border-blue-950/30 bg-blue-800">
     <div className="px-6 py-3 flex items-center justify-between">
       <div
-        className="
-          text-blue-50
-          text-2xl
-          font-semibold
-          tracking-widest
-          uppercase
-        "
-        style={{ fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}
-      >
-        SureBet Team
-      </div>
+  className="
+    text-blue-50
+    text-2xl
+    font-semibold
+    tracking-wide
+  "
+>
+  SureBet Team
+</div>
+
 
 
             <button
