@@ -20,9 +20,9 @@ export default function AppFrame({
   return (
     <div className={pageClass}>
       {/* Top bar uguale per entrambe le mode */}
-      <div className={`sticky top-0 z-50 border-b ${isDay ? "border-blue-950/30 bg-blue-800" : "border-zinc-800 bg-zinc-950/90 backdrop-blur"}`}>
+      <div className="sticky top-0 z-50 border-b border-blue-950/30 bg-blue-800">
         <div className="px-6 py-3 flex items-center justify-between">
-          <div className={isDay ? "text-blue-50 text-2xl font-semibold tracking-wide" : "text-zinc-100 text-xl font-semibold tracking-wide"}>
+          <div className="text-blue-50 text-2xl font-semibold tracking-wide">
             SureBet Team
           </div>
 
