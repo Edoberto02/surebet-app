@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { useUIMode } from "../components/UIModeProvider";
+
 
 type Account = { id: string; person_name: string; bookmaker_name: string; balance: number };
 
@@ -173,6 +175,25 @@ function StatusPills({
 export default function ScommessePage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
+    const { mode } = useUIMode();
+  const isDay = mode === "day";
+
+  const pageCls = isDay
+    ? "min-h-screen bg-[#F4F0E6] text-slate-900"
+    : "min-h-screen bg-zinc-950 text-zinc-100";
+
+  const panelCls = isDay
+    ? "rounded-2xl border border-[#E5DFD3] bg-[#FBF8F1]"
+    : "rounded-2xl border border-zinc-800 bg-zinc-900/40";
+
+  const innerCls = isDay
+    ? "rounded-xl border border-[#E5DFD3] bg-[#FFFDF8]"
+    : "rounded-xl border border-zinc-800 bg-zinc-950/30";
+
+  const inputCls = isDay
+    ? "mt-1 w-full rounded-xl border border-[#D8D1C3] bg-white px-3 py-2 text-sm text-slate-900 outline-none"
+    : "mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none";
+
 
   // soci
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -759,7 +780,7 @@ if (playersUnique.length > 0) {
   function LegCard({ leg, idx }: { leg: BetLeg; idx: number }) {
     const meta = accountMeta.get(leg.account_id);
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-xs">
+      <div className={`${innerCls} px-3 py-2 text-xs`}>
         <div className="flex items-center justify-between gap-2">
           <div className="text-zinc-500 font-semibold">Leg {idx + 1}</div>
           <Logo accountId={leg.account_id} />
@@ -788,7 +809,7 @@ if (playersUnique.length > 0) {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
+    <main className={`${pageCls} p-6`}>
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Scommesse</h1>
         <button onClick={loadAll} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
@@ -807,7 +828,7 @@ if (playersUnique.length > 0) {
       ) : (
         <>
           {/* Nuova bet */}
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <div className={`mt-6 ${panelCls} p-4`}>
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Nuova bet</h2>
               <label className="text-sm text-zinc-300">
@@ -815,8 +836,9 @@ if (playersUnique.length > 0) {
                 <select
                   value={betMode}
                   onChange={(e) => setBetMode(e.target.value as any)}
-                  className="ml-2 rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                  style={{ colorScheme: "dark" }}
+                  className={`ml-2 ${inputCls}`}
+style={isDay ? undefined : { colorScheme: "dark" }}
+
                 >
                   <option value="surebet">Surebet / Multipla (2+)</option>
                   <option value="single">Singola (1)</option>
@@ -831,7 +853,7 @@ if (playersUnique.length > 0) {
                   type="date"
                   value={newDate}
                   onChange={(e) => setNewDate(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  className={inputCls}
                 />
               </label>
 
@@ -845,7 +867,7 @@ if (playersUnique.length > 0) {
                 />
               </label>
             </div>
-            <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
+            <div className={`mt-4 ${innerCls} p-3`}>
   <div className="text-sm font-semibold text-zinc-200">Chi ha giocato la bet (bonus 10%)</div>
   <button
   type="button"
@@ -893,7 +915,7 @@ if (playersUnique.length > 0) {
 
             <div className="mt-4 space-y-3">
               {newLegs.map((l, i) => (
-                <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
+                <div key={i} className={`${innerCls} p-3`}>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                     <div className="md:col-span-2">
                       <SearchSelect label="Sito" value={l.account_id} options={accountOptions} onChange={(id) => updateNewLeg(i, { account_id: id })} />
@@ -939,7 +961,7 @@ if (playersUnique.length > 0) {
           </div>
 
                     {/* In corso */}
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <div className={`mt-6 ${panelCls} p-4`}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">In corso</h2>
               <div className="text-sm text-zinc-400">{inProgress.length} bet</div>
@@ -950,7 +972,7 @@ if (playersUnique.length > 0) {
             ) : (
               <div className="mt-4 space-y-3">
                 {inProgress.map((bs) => (
-                  <div key={bs.bet.id} className="rounded-xl border border-zinc-800 bg-zinc-950/30 p-3">
+                  <div key={bs.bet.id} className={`${innerCls} p-3`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-start gap-2">
   <button
@@ -1016,7 +1038,7 @@ if (playersUnique.length > 0) {
           </div>
 
           {/* Storico (chiuse) */}
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <div className={`mt-6 ${panelCls} p-4`}>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Storico (chiuse)</h2>
               <div className="text-sm text-zinc-400">{closed.length} bet</div>
@@ -1027,7 +1049,7 @@ if (playersUnique.length > 0) {
             ) : (
               <div className="mt-4 space-y-3">
                 {closedGrouped.map((m) => (
-                  <details key={m.monthStart} className="rounded-xl border border-zinc-800 bg-zinc-950/30">
+                  <details key={m.monthStart} className={`${innerCls}`}>
                     <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                       <div className="text-sm font-semibold text-zinc-100">{monthLabel(m.monthStart)}</div>
                       <div className={`text-sm font-semibold ${signClass(m.monthProfit)}`}>
@@ -1038,7 +1060,7 @@ if (playersUnique.length > 0) {
 
                     <div className="px-4 pb-4 space-y-2">
                       {m.days.map((d) => (
-                        <details key={d.dayISO} className="rounded-xl border border-zinc-800 bg-zinc-950/40">
+                        <details key={d.dayISO} className={`${innerCls}`}>
                           <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                             <div className="text-sm text-zinc-100">{formatDateIT(d.dayISO)}</div>
                             <div className={`text-sm font-semibold ${signClass(d.dayProfit)}`}>
@@ -1049,7 +1071,7 @@ if (playersUnique.length > 0) {
 
                           <div className="px-4 pb-4 space-y-3">
                             {d.bets.map((bs) => (
-                              <div key={bs.bet.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
+                              <div key={bs.bet.id} className={`${innerCls} p-3`}>
                                 <div className="flex items-center justify-between">
                                   <div className="text-sm text-zinc-200">
                                     {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
