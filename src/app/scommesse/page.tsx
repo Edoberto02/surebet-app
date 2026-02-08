@@ -1198,13 +1198,14 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                             {d.bets.map((bs) => (
                               <div key={bs.bet.id} className={`${innerCls} p-3`}>
                                 <div className="flex items-center justify-between">
-                                  <div className="text-sm text-zinc-200">
-                                    {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
-                                    <span className={`font-semibold ${signClass(bs.profit, isDay)}`}>
-                                      {bs.profit >= 0 ? "+" : ""}
-                                      {euro(bs.profit)}
-                                    </span>
-                                  </div>
+                                  <div className={`text-sm ${isDay ? "text-slate-900" : "text-zinc-200"}`}>
+  {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
+  <span className={`font-semibold ${signClass(bs.profit, isDay)}`}>
+    {bs.profit >= 0 ? "+" : ""}
+    {euro(bs.profit)}
+  </span>
+</div>
+
 
                                   <button
   onClick={() => deleteBet(bs.bet.id)}
@@ -1317,11 +1318,15 @@ style={isDay ? undefined : { colorScheme: "dark" }}
             </div>
 
             <button
-              onClick={saveEditBet}
-              className="mt-6 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
-            >
-              Salva
-            </button>
+  onClick={saveEditBet}
+  className={[
+    "mt-6 rounded-xl px-4 py-2 text-sm font-semibold transition text-white",
+    "bg-[#163D9C] hover:bg-[#12337F]",
+  ].join(" ")}
+>
+  Salva
+</button>
+
           </div>
         </div>
       )}
