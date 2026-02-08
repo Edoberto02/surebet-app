@@ -1163,105 +1163,121 @@ if (playersUnique.length > 0) {
           </div>
 
           {/* Storico (chiuse) */}
-          <div className={`mt-6 ${panelCls} p-4`}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Storico (chiuse)</h2>
-              <div className="text-sm text-zinc-400">{closed.length} bet</div>
-            </div>
+<div className="mt-6 overflow-hidden rounded-2xl border border-blue-200">
+  {/* Header blu */}
+  <div className="bg-gradient-to-r from-[#163D9C] to-blue-600 px-6 py-4">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h2 className="text-xl font-semibold tracking-wide text-white">Storico (chiuse)</h2>
+        <div className="mt-1 text-sm text-blue-100">
+          Archivio delle bet concluse (raggruppate per mese e giorno)
+        </div>
+      </div>
 
-            {closedGrouped.length === 0 ? (
-              <div className="mt-3 text-zinc-500">Nessuna bet chiusa.</div>
-            ) : (
-              <div className="mt-4 space-y-3">
-                {closedGrouped.map((m) => (
-                  <details key={m.monthStart} className={`${innerCls}`}>
-                    <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                      <div className={`text-sm font-semibold ${isDay ? "text-slate-900" : "text-zinc-100"}`}>
-  {monthLabel(m.monthStart)}
-</div>
-                      <div className={`text-sm font-semibold ${signClass(m.monthProfit, isDay)}`}>
-                        {m.monthProfit >= 0 ? "+" : ""}
-                        {euro(m.monthProfit)}
-                      </div>
-                    </summary>
-
-                    <div className="px-4 pb-4 space-y-2">
-                      {m.days.map((d) => (
-                        <details key={d.dayISO} className={`${innerCls}`}>
-                          <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                            <div className={`text-sm ${isDay ? "text-slate-900" : "text-zinc-100"}`}>
-  {formatDateIT(d.dayISO)}
-</div>
-                            <div className={`text-sm font-semibold ${signClass(d.dayProfit, isDay)}`}>
-                              {d.dayProfit >= 0 ? "+" : ""}
-                              {euro(d.dayProfit)}
-                            </div>
-                          </summary>
-
-                          <div className="px-4 pb-4 space-y-3">
-                            {d.bets.map((bs) => (
-                              <div key={bs.bet.id} className={`${innerCls} p-3`}>
-                                <div className="flex items-center justify-between">
-                                  <div className={`text-sm ${isDay ? "text-slate-900" : "text-zinc-200"}`}>
-  {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
-  <span className={`font-semibold ${signClass(bs.profit, isDay)}`}>
-    {bs.profit >= 0 ? "+" : ""}
-    {euro(bs.profit)}
-  </span>
-</div>
-
-
-                                  <button
-  onClick={() => deleteBet(bs.bet.id)}
-  className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 transition"
->
-  Elimina
-</button>
-
-                                </div>
-                              
-{(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
-  <div className="mt-2 text-xs text-zinc-400">
-    Giocata da: {(playersByBetId.get(bs.bet.id) ?? []).join(", ")}
-  </div>
-)}
-
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {bs.legs.map((l, idx) => (
-                                    <LegCard key={l.id} leg={l} idx={idx} />
-                                  ))}
-                                </div>
-
-                                <div className="mt-2 flex items-start justify-between gap-4">
-  <div className="text-xs text-zinc-500">
-    Stake: {euro(bs.stakeTotal)} — Payout: {euro(bs.payoutTotal)}
-  </div>
-
-  <div className="text-xs text-right space-y-1">
-  {Array.from(splitProfitWithBonus(bs.profit, bs.bet.id).entries()).map(([name, val]) => (
-    <div key={name} className="font-semibold">
-      <span className="text-zinc-100">{name}:</span>{" "}
-      <span className={signClass(val, isDay)}>
-        {val >= 0 ? "+" : ""}
-        {euro(val)}
-      </span>
+      <div className="rounded-xl border border-blue-200 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-900">
+        {closed.length} bet
+      </div>
     </div>
-  ))}
-</div>
+  </div>
 
-</div>
-
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      ))}
-                    </div>
-                  </details>
-                ))}
+  {/* Body */}
+  <div className={`${panelCls} p-4`}>
+    {closedGrouped.length === 0 ? (
+      <div className="mt-3 text-zinc-500">Nessuna bet chiusa.</div>
+    ) : (
+      <div className="mt-4 space-y-3">
+        {closedGrouped.map((m) => (
+          <details key={m.monthStart} className={`${innerCls}`}>
+            <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+              <div className={`text-sm font-semibold ${isDay ? "text-slate-900" : "text-zinc-100"}`}>
+                {monthLabel(m.monthStart)}
               </div>
-            )}
-          </div>
+              <div className={`text-sm font-semibold ${signClass(m.monthProfit, isDay)}`}>
+                {m.monthProfit >= 0 ? "+" : ""}
+                {euro(m.monthProfit)}
+              </div>
+            </summary>
+
+            <div className="px-4 pb-4 space-y-2">
+              {m.days.map((d) => (
+                <details key={d.dayISO} className={`${innerCls}`}>
+                  <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                    <div className={`text-sm ${isDay ? "text-slate-900" : "text-zinc-100"}`}>
+                      {formatDateIT(d.dayISO)}
+                    </div>
+                    <div className={`text-sm font-semibold ${signClass(d.dayProfit, isDay)}`}>
+                      {d.dayProfit >= 0 ? "+" : ""}
+                      {euro(d.dayProfit)}
+                    </div>
+                  </summary>
+
+                  <div className="px-4 pb-4 space-y-3">
+                    {d.bets.map((bs) => (
+                      <div key={bs.bet.id} className={`${innerCls} p-3`}>
+                        <div className="flex items-center justify-between">
+                          <div className={`text-sm ${isDay ? "text-slate-900" : "text-zinc-200"}`}>
+                            {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
+                            <span className={`font-semibold ${signClass(bs.profit, isDay)}`}>
+                              {bs.profit >= 0 ? "+" : ""}
+                              {euro(bs.profit)}
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={() => deleteBet(bs.bet.id)}
+                            className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 transition"
+                          >
+                            Elimina
+                          </button>
+                        </div>
+
+                        {(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
+                          <div className="mt-2 text-xs text-zinc-400">
+                            Giocata da: {(playersByBetId.get(bs.bet.id) ?? []).join(", ")}
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {bs.legs.map((l, idx) => (
+                            <LegCard key={l.id} leg={l} idx={idx} />
+                          ))}
+                        </div>
+
+                        <div className="mt-2 flex items-start justify-between gap-4">
+                          <div className="text-xs text-zinc-500">
+                            Stake: {euro(bs.stakeTotal)} — Payout: {euro(bs.payoutTotal)}
+                          </div>
+
+                          <div className="text-xs text-right space-y-1">
+                            {Array.from(splitProfitWithBonus(bs.profit, bs.bet.id).entries()).map(
+                              ([name, val]) => (
+                                <div key={name} className="font-semibold">
+                                  {/* ✅ NOME SOCIO: nero in day, chiaro in dark */}
+                                  <span className={isDay ? "text-slate-900" : "text-zinc-100"}>
+                                    {name}:
+                                  </span>{" "}
+                                  <span className={signClass(val, isDay)}>
+                                    {val >= 0 ? "+" : ""}
+                                    {euro(val)}
+                                  </span>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
+
         </>
       )}
 
