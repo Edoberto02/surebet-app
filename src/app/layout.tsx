@@ -16,10 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <UIModeProvider>
           <AuthGate>
-            <AppFrame>
-              <NavTabs />
-              {children}
-            </AppFrame>
+            <AppFrame nav={<NavTabs />}>{children}</AppFrame>
           </AuthGate>
         </UIModeProvider>
       </body>
