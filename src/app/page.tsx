@@ -736,7 +736,7 @@ export default function Page() {
 
                 <button
                   onClick={insertAdjustment}
-                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+                  className="mt-6 rounded-xl bg-blue-800 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
                 >
                   Salva rettifica
                 </button>
@@ -1027,7 +1027,7 @@ export default function Page() {
 
                 <button
                   onClick={insertTransaction}
-                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+                  className="mt-6 rounded-xl bg-blue-800 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
                 >
                   Salva transazione
                 </button>
