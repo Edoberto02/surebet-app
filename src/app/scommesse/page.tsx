@@ -48,9 +48,10 @@ function euro(n: number) {
 function toNumber(s: string) {
   return Number(String(s).replace(",", "."));
 }
-function signClass(n: number) {
-  if (Math.abs(n) < 1e-9) return "text-zinc-400";
-  return n > 0 ? "text-emerald-300" : "text-red-300";
+function signClass(n: number, isDay: boolean) {
+  if (Math.abs(n) < 1e-9) return isDay ? "text-slate-500" : "text-zinc-400";
+  if (n > 0) return isDay ? "text-emerald-700" : "text-emerald-300";
+  return isDay ? "text-red-700" : "text-red-300";
 }
 function monthLabel(monthStartISO: string) {
   const d = new Date(monthStartISO + "T00:00:00");
@@ -172,21 +173,35 @@ function SearchSelect({
 function StatusPills({
   status,
   onSet,
+  isDay,
 }: {
   status: "open" | "win" | "loss";
   onSet: (s: "open" | "win" | "loss") => void;
+  isDay: boolean;
 }) {
-  const base = "rounded-lg px-3 py-1 text-xs font-semibold border border-zinc-700";
-  const openCls =
-    status === "open" ? "bg-zinc-800 text-zinc-100" : "bg-zinc-950 text-zinc-300 hover:bg-zinc-900";
-  const winCls =
-    status === "win"
-      ? "bg-emerald-700/80 text-emerald-100 border-emerald-600"
-      : "bg-zinc-950 text-zinc-300 hover:bg-zinc-900";
-  const lossCls =
-    status === "loss"
-      ? "bg-red-800/70 text-red-100 border-red-700"
-      : "bg-zinc-950 text-zinc-300 hover:bg-zinc-900";
+  const base = "rounded-lg px-3 py-1 text-xs font-semibold border transition";
+
+  // ✅ NON selezionati: azzurrino chiaro (sia Day che Dark)
+  const idle = isDay
+    ? "bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100"
+    : "bg-blue-900/20 text-blue-100 border-blue-700/50 hover:bg-blue-900/30";
+
+  // ✅ selezionati: colore dedicato
+  const openActive = isDay
+    ? "bg-blue-200 text-blue-900 border-blue-300"
+    : "bg-blue-700/70 text-blue-100 border-blue-600";
+
+  const winActive = isDay
+    ? "bg-emerald-200 text-emerald-900 border-emerald-300"
+    : "bg-emerald-700/80 text-emerald-100 border-emerald-600";
+
+  const lossActive = isDay
+    ? "bg-red-200 text-red-900 border-red-300"
+    : "bg-red-800/70 text-red-100 border-red-700";
+
+  const openCls = status === "open" ? openActive : idle;
+  const winCls = status === "win" ? winActive : idle;
+  const lossCls = status === "loss" ? lossActive : idle;
 
   return (
     <div className="flex items-center gap-2">
@@ -202,6 +217,7 @@ function StatusPills({
     </div>
   );
 }
+
 
 export default function ScommessePage() {
   
@@ -225,6 +241,10 @@ export default function ScommessePage() {
   const btnDanger = isDay
     ? "rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500"
     : "rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700";
+
+    const btnCream = isDay
+  ? "rounded-xl border border-blue-200 bg-[#F7F5EE] px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-[#F1EFE6]"
+  : "rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700";
 
   const pageCls = isDay
     ? "min-h-screen bg-[#F4F0E6] text-slate-900"
@@ -850,7 +870,7 @@ if (playersUnique.length > 0) {
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <StatusPills status={leg.status} onSet={(s) => setLegStatus(leg.id, s)} />
+        <StatusPills status={leg.status} onSet={(s) => setLegStatus(leg.id, s)} isDay={isDay} />
         <button
           type="button"
           onClick={() => openEditLeg(leg)}
@@ -954,11 +974,17 @@ style={isDay ? undefined : { colorScheme: "dark" }}
               prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
             );
           }}
-          className={`rounded-xl px-3 py-2 text-xs font-semibold border ${
-            active
-              ? "border-yellow-600 bg-yellow-900/40 text-yellow-200"
-              : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900"
-          }`}
+          className={[
+  "rounded-xl px-3 py-2 text-xs font-semibold border transition",
+  active
+    ? (isDay
+        ? "border-blue-300 bg-blue-200 text-blue-900"
+        : "border-blue-600 bg-blue-900/40 text-blue-200")
+    : (isDay
+        ? "border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100"
+        : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900"),
+].join(" ")}
+
         >
           {p.name}
         </button>
@@ -1026,7 +1052,7 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                   </div>
 
                   <div className="mt-3">
-                    <button onClick={() => removeNewLeg(i)} className={btnDark}>
+                    <button onClick={() => removeNewLeg(i)} className={btnCream}>
   Rimuovi leg
 </button>
 
@@ -1067,8 +1093,8 @@ style={isDay ? undefined : { colorScheme: "dark" }}
   />
 
   <div className="flex flex-col">
-    <div className="text-sm text-zinc-200 flex items-center gap-2">
-      {formatDateIT(bs.bet.match_date)} — {(bs.bet.match_time ?? "").slice(0, 5)}
+    <div className={`text-sm flex items-center gap-2 ${isDay ? "text-slate-900" : "text-zinc-200"}`}>
+  {formatDateIT(bs.bet.match_date)} — {(bs.bet.match_time ?? "").slice(0, 5)}
       {isTwoHoursPastStart(bs.bet.match_date, bs.bet.match_time) && (
         <span
           title="Partita presumibilmente terminata"
@@ -1080,7 +1106,7 @@ style={isDay ? undefined : { colorScheme: "dark" }}
     </div>
 
     {(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
-      <div className="mt-1 text-xs text-zinc-400">
+      <div className={`mt-1 text-xs ${isDay ? "text-slate-600" : "text-zinc-400"}`}>
         Giocata da: {(playersByBetId.get(bs.bet.id) ?? []).join(", ")}
       </div>
     )}
@@ -1131,8 +1157,10 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                 {closedGrouped.map((m) => (
                   <details key={m.monthStart} className={`${innerCls}`}>
                     <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                      <div className="text-sm font-semibold text-zinc-100">{monthLabel(m.monthStart)}</div>
-                      <div className={`text-sm font-semibold ${signClass(m.monthProfit)}`}>
+                      <div className={`text-sm font-semibold ${isDay ? "text-slate-900" : "text-zinc-100"}`}>
+  {monthLabel(m.monthStart)}
+</div>
+                      <div className={`text-sm font-semibold ${signClass(m.monthProfit, isDay)}`}>
                         {m.monthProfit >= 0 ? "+" : ""}
                         {euro(m.monthProfit)}
                       </div>
@@ -1143,7 +1171,7 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                         <details key={d.dayISO} className={`${innerCls}`}>
                           <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
                             <div className="text-sm text-zinc-100">{formatDateIT(d.dayISO)}</div>
-                            <div className={`text-sm font-semibold ${signClass(d.dayProfit)}`}>
+                            <div className={`text-sm font-semibold ${signClass(d.dayProfit, isDay)}`}>
                               {d.dayProfit >= 0 ? "+" : ""}
                               {euro(d.dayProfit)}
                             </div>
@@ -1155,7 +1183,7 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                                 <div className="flex items-center justify-between">
                                   <div className="text-sm text-zinc-200">
                                     {(bs.bet.match_time ?? "").slice(0, 5)} —{" "}
-                                    <span className={`font-semibold ${signClass(bs.profit)}`}>
+                                    <span className={`font-semibold ${signClass(bs.profit, isDay)}`}>
                                       {bs.profit >= 0 ? "+" : ""}
                                       {euro(bs.profit)}
                                     </span>
@@ -1190,7 +1218,7 @@ style={isDay ? undefined : { colorScheme: "dark" }}
   {Array.from(splitProfitWithBonus(bs.profit, bs.bet.id).entries()).map(([name, val]) => (
     <div key={name} className="font-semibold">
       <span className="text-zinc-100">{name}:</span>{" "}
-      <span className={signClass(val)}>
+      <span className={signClass(val, isDay)}>
         {val >= 0 ? "+" : ""}
         {euro(val)}
       </span>
