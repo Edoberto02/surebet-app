@@ -933,7 +933,7 @@ if (playersUnique.length > 0) {
               ))}
             </div>
 
-            <button onClick={saveNewBet} className="mt-6 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600">
+            <button onClick={saveNewBet} className="mt-6 rounded-xl bg-blue-800 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
               Salva bet
             </button>
           </div>
@@ -1214,7 +1214,7 @@ if (playersUnique.length > 0) {
 
               <button
                 onClick={saveEditLeg}
-                className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-600"
+                className="rounded-xl bg-blue-800 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
               >
                 Salva modifiche
               </button>
