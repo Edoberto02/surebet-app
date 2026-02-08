@@ -74,18 +74,32 @@ function SearchSelect({
   options,
   placeholder,
   onChange,
+  isDay,
 }: {
   label: string;
   value: string;
   options: Option[];
   placeholder?: string;
   onChange: (id: string) => void;
+  isDay: boolean;
 }) {
+
+  
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const { mode } = useUIMode();
-  const isDay = mode === "day";
 
+   const ssLabelCls = isDay ? "text-slate-700" : "text-zinc-300";
+  const ssInputCls = isDay
+    ? "mt-1 w-full rounded-xl border border-[#D8D1C3] bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-200"
+    : "mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none";
+
+  const ssDropCls = isDay
+    ? "absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-[#D8D1C3] bg-white shadow"
+    : "absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-zinc-700 bg-zinc-950 shadow";
+
+  const ssItemCls = isDay
+    ? "block w-full px-3 py-2 text-left text-sm text-slate-900 hover:bg-blue-50"
+    : "block w-full px-3 py-2 text-left text-sm text-zinc-100 hover:bg-zinc-800";
   const selectedLabel = useMemo(() => options.find((o) => o.id === value)?.label ?? "", [options, value]);
 
   const filtered = useMemo(() => {
@@ -196,6 +210,21 @@ export default function ScommessePage() {
   const [msg, setMsg] = useState("");
     const { mode } = useUIMode();
   const isDay = mode === "day";
+  const btnPrimary = isDay
+    ? "rounded-xl bg-[#163D9C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#12337F] transition"
+    : "rounded-xl bg-blue-800 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition";
+
+  const btnNeutral = isDay
+    ? "rounded-xl border border-[#D8D1C3] bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-[#F4F0E6]"
+    : "rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700";
+
+  const btnDark = isDay
+    ? "rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+    : "rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700";
+
+  const btnDanger = isDay
+    ? "rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500"
+    : "rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700";
 
   const pageCls = isDay
     ? "min-h-screen bg-[#F4F0E6] text-slate-900"
@@ -797,49 +826,57 @@ if (playersUnique.length > 0) {
   }
 
   function LegCard({ leg, idx }: { leg: BetLeg; idx: number }) {
-    const meta = accountMeta.get(leg.account_id);
-    return (
-      <div className={`${innerCls} px-3 py-2 text-xs`}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-zinc-500 font-semibold">Leg {idx + 1}</div>
-          <Logo accountId={leg.account_id} />
-        </div>
-        <div className="mt-1 text-zinc-300">{meta?.label ?? leg.account_id}</div>
-        <div className="text-zinc-100">
-          importo: <span className="font-semibold">{euro(leg.stake)}</span>
-        </div>
-        <div className="text-zinc-100">
-          quota: <span className="font-semibold">{leg.odds}</span>
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-2">
-  <StatusPills status={leg.status} onSet={(s) => setLegStatus(leg.id, s)} />
-  <button
-  type="button"
-  onClick={() => openEditLeg(leg)}
-  className={[
-  "rounded-lg border px-3 py-1 text-xs font-semibold",
-  isDay
-    ? "border-blue-300 bg-blue-50 text-blue-900 hover:bg-blue-100"
-    : "border-yellow-600 bg-yellow-900/40 text-yellow-200 hover:bg-yellow-800/60",
-].join(" ")}
+  const meta = accountMeta.get(leg.account_id);
 
->
-  Modifica
-</button>
-
-</div>
-
+  return (
+    <div className={`${innerCls} px-3 py-2 text-xs`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className={isDay ? "text-slate-600 font-semibold" : "text-zinc-500 font-semibold"}>
+          Leg {idx + 1}
+        </div>
+        <Logo accountId={leg.account_id} />
       </div>
-    );
-  }
+
+      <div className={isDay ? "mt-1 text-slate-700" : "mt-1 text-zinc-300"}>
+        {meta?.label ?? leg.account_id}
+      </div>
+
+      <div className={isDay ? "text-slate-900" : "text-zinc-100"}>
+        importo: <span className="font-semibold">{euro(leg.stake)}</span>
+      </div>
+
+      <div className={isDay ? "text-slate-900" : "text-zinc-100"}>
+        quota: <span className="font-semibold">{leg.odds}</span>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <StatusPills status={leg.status} onSet={(s) => setLegStatus(leg.id, s)} />
+        <button
+          type="button"
+          onClick={() => openEditLeg(leg)}
+          className={[
+            "rounded-lg border px-3 py-1 text-xs font-semibold",
+            isDay
+              ? "border-blue-300 bg-blue-50 text-blue-900 hover:bg-blue-100"
+              : "border-yellow-600 bg-yellow-900/40 text-yellow-200 hover:bg-yellow-800/60",
+          ].join(" ")}
+        >
+          Modifica
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
   return (
     <main className={`${pageCls} p-6`}>
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Scommesse</h1>
-        <button onClick={loadAll} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
-          Aggiorna
-        </button>
+        <button onClick={loadAll} className={btnNeutral}>
+  Aggiorna
+</button>
+
       </div>
 
       {msg && (
@@ -896,17 +933,14 @@ style={isDay ? undefined : { colorScheme: "dark" }}
               </label>
             </div>
             <div className={`mt-4 ${innerCls} p-3`}>
-  <div className="text-sm font-semibold text-zinc-200">Chi ha giocato la bet (bonus 10%)</div>
-  <button
-  type="button"
-  onClick={() => setNewPlayers([])}
-  className="mt-2 rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
->
-  Pulisci selezione
-</button>
-  <div className="mt-1 text-xs text-zinc-400">
-    Se selezioni tutti i soci, il bonus non si applica (ripartizione pro-quota normale).
-  </div>
+  <div className={`text-sm font-semibold ${isDay ? "text-slate-800" : "text-zinc-200"}`}>
+  Chi ha giocato la bet (bonus 10%)
+</div>
+
+<div className={`mt-1 text-xs ${isDay ? "text-slate-600" : "text-zinc-400"}`}>
+  Se selezioni tutti i soci, il bonus non si applica (ripartizione pro-quota normale).
+</div>
+
 
   <div className="mt-3 flex flex-wrap gap-2">
     {partners.map((p) => {
@@ -936,9 +970,10 @@ style={isDay ? undefined : { colorScheme: "dark" }}
 
             <div className="mt-6 flex items-center justify-between">
               <h3 className="text-base font-semibold">Legs</h3>
-              <button onClick={addNewLeg} className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700">
-                + Aggiungi sito
-              </button>
+              <button onClick={addNewLeg} className={btnNeutral}>
+  + Aggiungi sito
+</button>
+ 
             </div>
 
             <div className="mt-4 space-y-3">
@@ -946,21 +981,33 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                 <div key={i} className={`${innerCls} p-3`}>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                     <div className="md:col-span-2">
-                      <SearchSelect label="Sito" value={l.account_id} options={accountOptions} onChange={(id) => updateNewLeg(i, { account_id: id })} />
+                      <SearchSelect
+  label="Sito"
+  value={l.account_id}
+  options={accountOptions}
+  onChange={(id) => updateNewLeg(i, { account_id: id })}
+  isDay={isDay}
+/>
+
                     </div>
 
                     <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
 
                       Importo
                       <input value={l.stake} onChange={(e) => updateNewLeg(i, { stake: e.target.value })}
-                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                        className={inputCls}
+ />
                     </label>
 
                     <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
 
                       Quota
-                      <input value={l.odds} onChange={(e) => updateNewLeg(i, { odds: e.target.value })}
-                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                     <input
+  value={l.odds}
+  onChange={(e) => updateNewLeg(i, { odds: e.target.value })}
+  className={inputCls}
+/>
+
                     </label>
 
                     <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
@@ -979,9 +1026,10 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                   </div>
 
                   <div className="mt-3">
-                    <button onClick={() => removeNewLeg(i)} className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold hover:bg-zinc-700">
-                      Rimuovi leg
-                    </button>
+                    <button onClick={() => removeNewLeg(i)} className={btnDark}>
+  Rimuovi leg
+</button>
+
                   </div>
                 </div>
               ))}
@@ -1243,11 +1291,13 @@ style={isDay ? undefined : { colorScheme: "dark" }}
             <div className="mt-4 grid grid-cols-1 gap-3">
               <div>
                 <SearchSelect
-                  label="Bookmaker / Persona"
-                  value={editAccountId}
-                  options={allAccountOptions}
-                  onChange={setEditAccountId}
-                />
+  label="Bookmaker / Persona"
+  value={editAccountId}
+  options={allAccountOptions}
+  onChange={setEditAccountId}
+  isDay={isDay}
+/>
+
               </div>
 
               <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
