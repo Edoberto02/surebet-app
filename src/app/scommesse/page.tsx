@@ -83,6 +83,8 @@ function SearchSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const { mode } = useUIMode();
+  const isDay = mode === "day";
 
   const selectedLabel = useMemo(() => options.find((o) => o.id === value)?.label ?? "", [options, value]);
 
@@ -94,8 +96,7 @@ function SearchSelect({
 
   return (
     <div className="relative">
-      <div className="text-sm text-zinc-300">{label}</div>
-
+      <div className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>{label}</div>
       <input
         value={open ? q : selectedLabel}
         onChange={(e) => {
@@ -108,11 +109,23 @@ function SearchSelect({
         }}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
         placeholder={placeholder ?? "Scrivi per cercare..."}
-        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none"
+        className={[
+  "mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none",
+  isDay
+    ? "border-[#D8D1C3] bg-white text-slate-900 placeholder:text-slate-400"
+    : "border-zinc-700 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500",
+].join(" ")}
+
       />
 
       {open && (
-        <div className="absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-zinc-700 bg-zinc-950 shadow">
+        <div
+  className={[
+    "absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border shadow",
+    isDay ? "border-[#D8D1C3] bg-white" : "border-zinc-700 bg-zinc-950",
+  ].join(" ")}
+>
+
           {filtered.length === 0 ? (
             <div className="px-3 py-2 text-sm text-zinc-400">Nessun risultato</div>
           ) : (
@@ -126,7 +139,11 @@ function SearchSelect({
                   setOpen(false);
                   setQ("");
                 }}
-                className="block w-full px-3 py-2 text-left text-sm text-zinc-100 hover:bg-zinc-800"
+                className={[
+  "block w-full px-3 py-2 text-left text-sm",
+  isDay ? "text-slate-900 hover:bg-blue-50" : "text-zinc-100 hover:bg-zinc-800",
+].join(" ")}
+
               >
                 {o.label}
               </button>
@@ -173,6 +190,8 @@ function StatusPills({
 }
 
 export default function ScommessePage() {
+  
+  
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
     const { mode } = useUIMode();
@@ -797,7 +816,13 @@ if (playersUnique.length > 0) {
   <button
   type="button"
   onClick={() => openEditLeg(leg)}
-  className="rounded-lg border border-yellow-600 bg-yellow-900/40 px-3 py-1 text-xs font-semibold text-yellow-200 hover:bg-yellow-800/60"
+  className={[
+  "rounded-lg border px-3 py-1 text-xs font-semibold",
+  isDay
+    ? "border-blue-300 bg-blue-50 text-blue-900 hover:bg-blue-100"
+    : "border-yellow-600 bg-yellow-900/40 text-yellow-200 hover:bg-yellow-800/60",
+].join(" ")}
+
 >
   Modifica
 </button>
@@ -818,20 +843,21 @@ if (playersUnique.length > 0) {
       </div>
 
       {msg && (
-        <div className="mt-4 whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 text-sm">
+        <div className={`mt-4 whitespace-pre-wrap rounded-xl p-3 text-sm ${innerCls}`}>
           {msg}
         </div>
       )}
 
       {loading ? (
-        <div className="mt-6 text-zinc-400">Caricamento…</div>
+        <div className={`mt-6 ${isDay ? "text-slate-600" : "text-zinc-400"}`}>Caricamento…</div>
       ) : (
         <>
           {/* Nuova bet */}
           <div className={`mt-6 ${panelCls} p-4`}>
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Nuova bet</h2>
-              <label className="text-sm text-zinc-300">
+              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                 Tipo
                 <select
                   value={betMode}
@@ -847,7 +873,8 @@ style={isDay ? undefined : { colorScheme: "dark" }}
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <label className="text-sm text-zinc-300">
+              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                 Data partita
                 <input
                   type="date"
@@ -857,13 +884,14 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                 />
               </label>
 
-              <label className="text-sm text-zinc-300">
+              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                 Ora partita
                 <input
                   type="time"
                   value={newTime}
                   onChange={(e) => setNewTime(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  className={inputCls}
                 />
               </label>
             </div>
@@ -921,23 +949,27 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                       <SearchSelect label="Sito" value={l.account_id} options={accountOptions} onChange={(id) => updateNewLeg(i, { account_id: id })} />
                     </div>
 
-                    <label className="text-sm text-zinc-300">
+                    <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                       Importo
                       <input value={l.stake} onChange={(e) => updateNewLeg(i, { stake: e.target.value })}
                         className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
                     </label>
 
-                    <label className="text-sm text-zinc-300">
+                    <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                       Quota
                       <input value={l.odds} onChange={(e) => updateNewLeg(i, { odds: e.target.value })}
                         className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
                     </label>
 
-                    <label className="text-sm text-zinc-300">
+                    <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                       Esito
                       <select value={l.status} onChange={(e) => updateNewLeg(i, { status: e.target.value as any })}
-                        className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                        style={{ colorScheme: "dark" }}
+                        className={inputCls}
+style={isDay ? undefined : { colorScheme: "dark" }}
+
                       >
                         <option value="open">open</option>
                         <option value="win">win</option>
@@ -1155,7 +1187,8 @@ style={isDay ? undefined : { colorScheme: "dark" }}
             )}
 
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <label className="text-sm text-zinc-300">
+              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                 Data
                 <input
                   type="date"
@@ -1165,7 +1198,8 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                 />
               </label>
 
-              <label className="text-sm text-zinc-300">
+              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                 Ora
                 <input
                   type="time"
@@ -1216,21 +1250,23 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                 />
               </div>
 
-              <label className="text-sm text-zinc-300">
+              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                 Importo
                 <input
                   value={editStake}
                   onChange={(e) => setEditStake(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  className={inputCls}
                 />
               </label>
 
-              <label className="text-sm text-zinc-300">
+              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+
                 Quota
                 <input
                   value={editOdds}
                   onChange={(e) => setEditOdds(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  className={inputCls}
                 />
               </label>
 
