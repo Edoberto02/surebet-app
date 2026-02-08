@@ -1178,10 +1178,17 @@ if (playersUnique.length > 0) {
           Archivio delle bet concluse (raggruppate per mese e giorno)
         </div>
       </div>
+      <div
+  className={[
+    "rounded-xl border px-3 py-2 text-sm font-semibold",
+    isDay
+      ? "border-blue-200 bg-white/95 text-slate-900"
+      : "border-zinc-700 bg-zinc-900 text-zinc-100",
+  ].join(" ")}
+>
+  {closed.length} bet
+</div>
 
-      <div className="rounded-xl border border-blue-200 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-900">
-        {closed.length} bet
-      </div>
     </div>
   </div>
 
