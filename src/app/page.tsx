@@ -59,15 +59,36 @@ function isZero(n: number) {
 }
 
 function balanceClass(n: number, isDay: boolean) {
-  if (isZero(n)) return isDay ? "text-slate-500" : "text-zinc-400";
-  if (n > 0) return isDay ? "text-emerald-700" : "text-emerald-300";
-  return isDay ? "text-red-700" : "text-red-300";
+  if (isZero(n)) {
+    return isDay
+      ? "text-slate-500 font-normal"
+      : "text-zinc-400 font-normal";
+  }
+
+  if (n > 0) {
+    return isDay
+      ? "text-emerald-800 font-semibold"
+      : "text-emerald-300 font-semibold";
+  }
+
+  return isDay
+    ? "text-red-700 font-semibold"
+    : "text-red-400 font-semibold";
 }
 
+
 function pendingClass(n: number, isDay: boolean) {
-  if (isZero(n)) return isDay ? "text-slate-500" : "text-zinc-400";
-  return isDay ? "text-amber-700" : "text-amber-300";
+  if (isZero(n)) {
+    return isDay
+      ? "text-slate-500 font-normal"
+      : "text-zinc-400 font-normal";
+  }
+
+  return isDay
+    ? "text-amber-800 font-semibold"
+    : "text-amber-300 font-semibold";
 }
+
 
 function monthLabel(monthStartISO: string) {
   const d = new Date(monthStartISO + "T00:00:00");
@@ -573,7 +594,16 @@ export default function Page() {
 
     return (
       <div className={[innerCls, "inline-block px-2 py-1 text-xs"].join(" ")}>
-        <div className={isDay ? "text-slate-700" : "text-zinc-300"}>{pm.label}</div>
+        <div
+  className={
+    isDay
+      ? "text-slate-800 font-semibold"
+      : "text-zinc-200 font-semibold"
+  }
+>
+  {pm.label}
+</div>
+
         <div className={balanceClass(Number(pm.balance ?? 0), isDay)}>{euro(Number(pm.balance ?? 0))}</div>
         {!isZero(Number(pm.pending_incoming ?? 0)) && (
           <div className={pendingClass(Number(pm.pending_incoming ?? 0), isDay)}>
@@ -755,211 +785,234 @@ export default function Page() {
 
           {/* COLONNE: RETTIFICHE + TRANSAZIONI */}
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-            {/* RETTIFICHE */}
-            <div className={panelCls + " p-4"}>
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Rettifiche</h2>
-                <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>{adjustments.length} movimenti</div>
-              </div>
+{/* RETTIFICHE (HEADER BLU PREMIUM) */}
+<div className="overflow-hidden rounded-2xl border border-blue-200">
+  <div className="bg-gradient-to-r from-[#163D9C] to-blue-600 px-6 py-4">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h2 className="text-xl font-semibold tracking-wide text-white">Rettifiche</h2>
+        <div className="mt-1 text-sm text-blue-100">Aggiunte manuali ai saldi</div>
+      </div>
+      <div className={headerCounterCls}>{adjustments.length} movimenti</div>
+    </div>
+  </div>
 
-              <div className="mt-4 grid gap-3">
-                <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                  Target
-                  <select
-                    value={adjTargetType}
-                    onChange={(e) => setAdjTargetType(e.target.value as any)}
-                    className={inputCls}
-                    style={isDay ? undefined : { colorScheme: "dark" }}
-                  >
-                    <option value="account">Bookmaker (Account)</option>
-                    <option value="payment_method">Metodo di pagamento</option>
-                  </select>
-                </label>
+  <div className={`${panelCls} p-4`}>
+    <div className="mt-4 grid gap-3">
+      <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+        Target
+        <select
+          value={adjTargetType}
+          onChange={(e) => setAdjTargetType(e.target.value as any)}
+          className={inputCls}
+          style={isDay ? undefined : { colorScheme: "dark" }}
+        >
+          <option value="account">Bookmaker (Account)</option>
+          <option value="payment_method">Metodo di pagamento</option>
+        </select>
+      </label>
 
-                <SearchSelect
-                  label={adjTargetType === "account" ? "Account bookmaker" : "Metodo di pagamento"}
-                  value={adjTargetId}
-                  options={adjTargetType === "account" ? allAccountOptions : allMethodOptions}
-                  onChange={setAdjTargetId}
-                  isDay={isDay}
-                />
+      <SearchSelect
+        label={adjTargetType === "account" ? "Account bookmaker" : "Metodo di pagamento"}
+        value={adjTargetId}
+        options={adjTargetType === "account" ? allAccountOptions : allMethodOptions}
+        onChange={setAdjTargetId}
+        isDay={isDay}
+      />
 
-                <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                  Importo (+/-)
-                  <input value={adjAmount} onChange={(e) => setAdjAmount(e.target.value)} className={inputCls} />
-                </label>
+      <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+        Importo (+/-)
+        <input value={adjAmount} onChange={(e) => setAdjAmount(e.target.value)} className={inputCls} />
+      </label>
 
-                <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                  Nota (opzionale)
-                  <input value={adjNote} onChange={(e) => setAdjNote(e.target.value)} className={inputCls} />
-                </label>
+      <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+        Nota (opzionale)
+        <input value={adjNote} onChange={(e) => setAdjNote(e.target.value)} className={inputCls} />
+      </label>
 
-                <button onClick={insertAdjustment} className={btnPrimary}>
-                  Salva rettifica
-                </button>
-              </div>
+      <button onClick={insertAdjustment} className={btnPrimary}>
+        Salva rettifica
+      </button>
+    </div>
 
-              <div className="mt-6 space-y-3">
-                <h3 className={isDay ? "text-sm font-semibold text-slate-800" : "text-sm font-semibold text-zinc-200"}>
-                  Storico rettifiche
-                </h3>
+    <div className="mt-6 space-y-3">
+      <h3 className={isDay ? "text-sm font-semibold text-slate-800" : "text-sm font-semibold text-zinc-200"}>
+        Storico rettifiche
+      </h3>
 
-                {adjGrouped.length === 0 ? (
-                  <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-500"}>Nessuna rettifica.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {adjGrouped.map((m) => (
-                      <details key={m.monthStart} className={innerCls}>
-                        <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                          <div className={isDay ? "text-sm font-semibold text-slate-900" : "text-sm font-semibold text-zinc-100"}>
-                            {monthLabel(m.monthStart)}
+      {adjGrouped.length === 0 ? (
+        <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-500"}>Nessuna rettifica.</div>
+      ) : (
+        <div className="space-y-2">
+          {adjGrouped.map((m) => (
+            <details key={m.monthStart} className={innerCls}>
+              <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                <div className={isDay ? "text-sm font-semibold text-slate-900" : "text-sm font-semibold text-zinc-100"}>
+                  {monthLabel(m.monthStart)}
+                </div>
+                <div className={`text-sm font-semibold ${balanceClass(m.monthTotal, isDay)}`}>
+                  {m.monthTotal >= 0 ? "+" : ""}
+                  {euro(m.monthTotal)}
+                </div>
+              </summary>
+
+              <div className="px-4 pb-4 space-y-2">
+                {m.days.map((d) => (
+                  <details key={d.dayISO} className={innerCls}>
+                    <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                      <div className={isDay ? "text-sm text-slate-900" : "text-sm text-zinc-100"}>{d.dayISO}</div>
+                      <div className={`text-sm font-semibold ${balanceClass(d.dayTotal, isDay)}`}>
+                        {d.dayTotal >= 0 ? "+" : ""}
+                        {euro(d.dayTotal)}
+                      </div>
+                    </summary>
+
+                    <div className="px-4 pb-4 space-y-2">
+                      {d.items.map((a: any) => {
+                        const label =
+                          a.target_type === "account"
+                            ? accountLabelById.get(a.target_id) ?? a.target_id
+                            : methodLabelById.get(a.target_id) ?? a.target_id;
+
+                        return (
+                          <div key={a.id} className={`${innerCls} p-3`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                                {new Date(a.created_at).toLocaleString("it-IT")}
+                              </div>
+                              <button onClick={() => deleteAdjustment(a.id)} className={btnDanger}>
+                                Elimina
+                              </button>
+                            </div>
+
+                            <div className={isDay ? "mt-2 text-sm text-slate-800" : "mt-2 text-sm text-zinc-200"}>
+                              <span className={isDay ? "text-slate-500" : "text-zinc-400"}>
+                                {a.target_type === "account" ? "Account" : "Metodo"}:
+                              </span>{" "}
+                              {label}
+                            </div>
+
+                            <div className={`mt-1 text-sm font-semibold ${balanceClass(a.amount, isDay)}`}>
+                              {a.amount >= 0 ? "+" : ""}
+                              {euro(a.amount)}
+                            </div>
+
+                            {a.note && (
+                              <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                                {a.note}
+                              </div>
+                            )}
                           </div>
-                          <div className={`text-sm font-semibold ${balanceClass(m.monthTotal, isDay)}`}>
-                            {m.monthTotal >= 0 ? "+" : ""}
-                            {euro(m.monthTotal)}
+                        );
+                      })}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <div className="mt-6">
+      <details className={innerCls}>
+        <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+          <div className={isDay ? "text-sm font-semibold text-slate-900" : "text-sm font-semibold text-zinc-100"}>
+            Rettifiche iniziali{" "}
+            <span className={isDay ? "ml-2 text-xs text-slate-500" : "ml-2 text-xs text-zinc-400"}>(Set saldo a valore)</span>
+          </div>
+          <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>{baselineAdjustments.length} righe</div>
+        </summary>
+
+        <div className="px-4 pb-4">
+          {baselineGrouped.length === 0 ? (
+            <div className={isDay ? "text-sm text-slate-600 mt-2" : "text-sm text-zinc-500 mt-2"}>
+              Nessuna rettifica iniziale.
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {baselineGrouped.map((m) => (
+                <details key={m.monthStart} className={innerCls}>
+                  <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                    <div className={isDay ? "text-sm text-slate-900" : "text-sm text-zinc-100"}>{monthLabel(m.monthStart)}</div>
+                    <div className={`text-sm font-semibold ${balanceClass(m.monthTotal, isDay)}`}>
+                      {m.monthTotal >= 0 ? "+" : ""}
+                      {euro(m.monthTotal)}
+                    </div>
+                  </summary>
+
+                  <div className="px-4 pb-4 space-y-2">
+                    {m.days.map((d) => (
+                      <details key={d.dayISO} className={innerCls}>
+                        <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                          <div className={isDay ? "text-sm text-slate-900" : "text-sm text-zinc-100"}>{d.dayISO}</div>
+                          <div className={`text-sm font-semibold ${balanceClass(d.dayTotal, isDay)}`}>
+                            {d.dayTotal >= 0 ? "+" : ""}
+                            {euro(d.dayTotal)}
                           </div>
                         </summary>
 
                         <div className="px-4 pb-4 space-y-2">
-                          {m.days.map((d) => (
-                            <details key={d.dayISO} className={innerCls}>
-                              <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                                <div className={isDay ? "text-sm text-slate-900" : "text-sm text-zinc-100"}>{d.dayISO}</div>
-                                <div className={`text-sm font-semibold ${balanceClass(d.dayTotal, isDay)}`}>
-                                  {d.dayTotal >= 0 ? "+" : ""}
-                                  {euro(d.dayTotal)}
+                          {d.items.map((a: any) => {
+                            const label =
+                              a.target_type === "account"
+                                ? accountLabelById.get(a.target_id) ?? a.target_id
+                                : methodLabelById.get(a.target_id) ?? a.target_id;
+
+                            return (
+                              <div key={a.id} className={`${innerCls} p-3`}>
+                                <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                                  {new Date(a.created_at).toLocaleString("it-IT")}
                                 </div>
-                              </summary>
 
-                              <div className="px-4 pb-4 space-y-2">
-                                {d.items.map((a) => {
-                                  const label =
-                                    a.target_type === "account"
-                                      ? accountLabelById.get(a.target_id) ?? a.target_id
-                                      : methodLabelById.get(a.target_id) ?? a.target_id;
+                                <div className={isDay ? "mt-2 text-sm text-slate-800" : "mt-2 text-sm text-zinc-200"}>
+                                  <span className={isDay ? "text-slate-500" : "text-zinc-400"}>
+                                    {a.target_type === "account" ? "Account" : "Metodo"}:
+                                  </span>{" "}
+                                  {label}
+                                </div>
 
-                                  return (
-                                    <div key={a.id} className={`${innerCls} p-3`}>
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                                          {new Date(a.created_at).toLocaleString("it-IT")}
-                                        </div>
-                                        <button onClick={() => deleteAdjustment(a.id)} className={btnDanger}>
-                                          Elimina
-                                        </button>
-                                      </div>
+                                <div className={`mt-1 text-sm font-semibold ${balanceClass(a.amount, isDay)}`}>
+                                  {a.amount >= 0 ? "+" : ""}
+                                  {euro(a.amount)}
+                                </div>
 
-                                      <div className={isDay ? "mt-2 text-sm text-slate-800" : "mt-2 text-sm text-zinc-200"}>
-                                        <span className={isDay ? "text-slate-500" : "text-zinc-400"}>
-                                          {a.target_type === "account" ? "Account" : "Metodo"}:
-                                        </span>{" "}
-                                        {label}
-                                      </div>
-
-                                      <div className={`mt-1 text-sm font-semibold ${balanceClass(a.amount, isDay)}`}>
-                                        {a.amount >= 0 ? "+" : ""}
-                                        {euro(a.amount)}
-                                      </div>
-
-                                      {a.note && <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>{a.note}</div>}
-                                    </div>
-                                  );
-                                })}
+                                {a.note && (
+                                  <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                                    {a.note}
+                                  </div>
+                                )}
                               </div>
-                            </details>
-                          ))}
+                            );
+                          })}
                         </div>
                       </details>
                     ))}
                   </div>
-                )}
-              </div>
-
-              {/* Rettifiche iniziali */}
-              <div className="mt-6">
-                <details className={innerCls}>
-                  <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                    <div className={isDay ? "text-sm font-semibold text-slate-900" : "text-sm font-semibold text-zinc-100"}>
-                      Rettifiche iniziali{" "}
-                      <span className={isDay ? "ml-2 text-xs text-slate-500" : "ml-2 text-xs text-zinc-400"}>
-                        (Set saldo a valore)
-                      </span>
-                    </div>
-                    <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>{baselineAdjustments.length} righe</div>
-                  </summary>
-
-                  <div className="px-4 pb-4">
-                    {baselineGrouped.length === 0 ? (
-                      <div className={isDay ? "text-sm text-slate-600 mt-2" : "text-sm text-zinc-500 mt-2"}>Nessuna rettifica iniziale.</div>
-                    ) : (
-                      <div className="mt-3 space-y-2">
-                        {baselineGrouped.map((m) => (
-                          <details key={m.monthStart} className={innerCls}>
-                            <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                              <div className={isDay ? "text-sm text-slate-900" : "text-sm text-zinc-100"}>{monthLabel(m.monthStart)}</div>
-                              <div className={`text-sm font-semibold ${balanceClass(m.monthTotal, isDay)}`}>
-                                {m.monthTotal >= 0 ? "+" : ""}
-                                {euro(m.monthTotal)}
-                              </div>
-                            </summary>
-
-                            <div className="px-4 pb-4 space-y-2">
-                              {m.days.map((d) => (
-                                <details key={d.dayISO} className={innerCls}>
-                                  <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                                    <div className={isDay ? "text-sm text-slate-900" : "text-sm text-zinc-100"}>{d.dayISO}</div>
-                                    <div className={`text-sm font-semibold ${balanceClass(d.dayTotal, isDay)}`}>
-                                      {d.dayTotal >= 0 ? "+" : ""}
-                                      {euro(d.dayTotal)}
-                                    </div>
-                                  </summary>
-
-                                  <div className="px-4 pb-4 space-y-2">
-                                    {d.items.map((a) => {
-                                      const label =
-                                        a.target_type === "account"
-                                          ? accountLabelById.get(a.target_id) ?? a.target_id
-                                          : methodLabelById.get(a.target_id) ?? a.target_id;
-
-                                      return (
-                                        <div key={a.id} className={`${innerCls} p-3`}>
-                                          <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                                            {new Date(a.created_at).toLocaleString("it-IT")}
-                                          </div>
-                                          <div className={isDay ? "mt-2 text-sm text-slate-800" : "mt-2 text-sm text-zinc-200"}>
-                                            <span className={isDay ? "text-slate-500" : "text-zinc-400"}>
-                                              {a.target_type === "account" ? "Account" : "Metodo"}:
-                                            </span>{" "}
-                                            {label}
-                                          </div>
-                                          <div className={`mt-1 text-sm font-semibold ${balanceClass(a.amount, isDay)}`}>
-                                            {a.amount >= 0 ? "+" : ""}
-                                            {euro(a.amount)}
-                                          </div>
-                                          {a.note && <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>{a.note}</div>}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </details>
-                              ))}
-                            </div>
-                          </details>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 </details>
-              </div>
+              ))}
             </div>
+          )}
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
 
-            {/* TRANSAZIONI */}
-            <div className={panelCls + " p-4"}>
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Transazioni</h2>
-                <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>{txs.length} righe</div>
-              </div>
+            {/* TRANSAZIONI (HEADER BLU PREMIUM) */}
+<div className="overflow-hidden rounded-2xl border border-blue-200">
+  <div className="bg-gradient-to-r from-[#163D9C] to-blue-600 px-6 py-4">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h2 className="text-xl font-semibold tracking-wide text-white">Transazioni</h2>
+        <div className="mt-1 text-sm text-blue-100">Depositi, prelievi e trasferimenti</div>
+      </div>
+      <div className={headerCounterCls}>{txs.length} righe</div>
+    </div>
+  </div>
 
+  <div className={`${panelCls} p-4`}>
               <div className="mt-4 grid gap-3">
                 <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
                   Tipo
@@ -1193,6 +1246,8 @@ export default function Page() {
               </div>
             </div>
           </div>
+</div>
+
         </>
       )}
 
