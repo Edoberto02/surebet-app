@@ -1121,18 +1121,29 @@ style={isDay ? undefined : { colorScheme: "dark" }}
 
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => openEditBetModal(bs.bet)}
-                          className="rounded-xl bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-700"
-                        >
-                          Modifica data/ora
-                        </button>
+  onClick={() => openEditBetModal(bs.bet)}
+  className={[
+    "rounded-xl px-3 py-2 text-xs font-semibold transition",
+    // day: blu testo + bordo blu, sfondo bianco
+    isDay
+      ? "bg-white text-[#163D9C] border border-[#163D9C] hover:bg-blue-50"
+      : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
+  ].join(" ")}
+>
+  Modifica data/ora
+</button>
 
-                        <button
-                          onClick={() => deleteBet(bs.bet.id)}
-                          className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
-                        >
-                          Elimina
-                        </button>
+<button
+  onClick={() => deleteBet(bs.bet.id)}
+  className={[
+    "rounded-xl px-3 py-2 text-xs font-semibold transition text-white",
+    // rosso più acceso
+    isDay ? "bg-red-600 hover:bg-red-500" : "bg-red-600 hover:bg-red-500",
+  ].join(" ")}
+>
+  Elimina
+</button>
+
                       </div>
                     </div>
 
@@ -1196,11 +1207,12 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                                   </div>
 
                                   <button
-                                    onClick={() => deleteBet(bs.bet.id)}
-                                    className="rounded-xl bg-red-800/70 px-3 py-2 text-xs font-semibold hover:bg-red-700"
-                                  >
-                                    Elimina
-                                  </button>
+  onClick={() => deleteBet(bs.bet.id)}
+  className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 transition"
+>
+  Elimina
+</button>
+
                                 </div>
                               
 {(playersByBetId.get(bs.bet.id) ?? []).length > 0 && (
@@ -1251,12 +1263,22 @@ style={isDay ? undefined : { colorScheme: "dark" }}
       {/* MODAL: Modifica data/ora bet */}
       {openEditBet && (
         <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+          <div
+  className={[
+    "w-full max-w-xl rounded-2xl border p-4",
+    isDay ? "border-[#E5DFD3] bg-[#FFFDF8] text-slate-900" : "border-zinc-800 bg-zinc-950 text-zinc-100",
+  ].join(" ")}
+>
+
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Modifica data/ora bet</h2>
               <button
                 onClick={() => setOpenEditBet(false)}
-                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+                className={[
+  "rounded-xl px-3 py-2 text-sm font-semibold transition",
+  isDay ? "bg-white border border-[#D8D1C3] text-slate-800 hover:bg-[#F4F0E6]" : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
+].join(" ")}
+
               >
                 Chiudi
               </button>
@@ -1276,7 +1298,8 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                   type="date"
                   value={editBetDate}
                   onChange={(e) => setEditBetDate(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  className={inputCls}
+
                 />
               </label>
 
@@ -1287,7 +1310,8 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                   type="time"
                   value={editBetTime}
                   onChange={(e) => setEditBetTime(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  className={inputCls}
+
                 />
               </label>
             </div>
@@ -1305,12 +1329,22 @@ style={isDay ? undefined : { colorScheme: "dark" }}
       {/* MODAL: Modifica leg */}
       {openEdit && (
         <div className="fixed inset-0 z-50 bg-black/60 p-4 flex items-center justify-center">
-          <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+          <div
+  className={[
+    "w-full max-w-xl rounded-2xl border p-4",
+    isDay ? "border-[#E5DFD3] bg-[#FFFDF8] text-slate-900" : "border-zinc-800 bg-zinc-950 text-zinc-100",
+  ].join(" ")}
+>
+
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Modifica leg</h2>
               <button
                 onClick={() => setOpenEdit(false)}
-                className="rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+                className={[
+  "rounded-xl px-3 py-2 text-sm font-semibold transition",
+  isDay ? "bg-white border border-[#D8D1C3] text-slate-800 hover:bg-[#F4F0E6]" : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
+].join(" ")}
+
               >
                 Chiudi
               </button>
