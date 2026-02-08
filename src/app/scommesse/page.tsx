@@ -849,13 +849,18 @@ if (playersUnique.length > 0) {
   const meta = accountMeta.get(leg.account_id);
 
   return (
-    <div className={`${innerCls} px-3 py-2 text-xs`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className={isDay ? "text-slate-600 font-semibold" : "text-zinc-500 font-semibold"}>
-          Leg {idx + 1}
-        </div>
-        <Logo accountId={leg.account_id} />
+  <div className={`${innerCls} relative px-3 py-2 pt-3 text-xs`}>
+    {/* ✅ LOGO ancorato all’angolo in alto a destra */}
+    <div className="absolute right-2 top-2">
+      <Logo accountId={leg.account_id} />
+    </div>
+
+    <div className="flex items-center justify-between gap-2">
+      <div className={isDay ? "text-slate-600 font-semibold" : "text-zinc-500 font-semibold"}>
+        Leg {idx + 1}
       </div>
+    </div>
+
 
       <div className={isDay ? "mt-1 text-slate-700" : "mt-1 text-zinc-300"}>
         {meta?.label ?? leg.account_id}
@@ -875,11 +880,10 @@ if (playersUnique.length > 0) {
           type="button"
           onClick={() => openEditLeg(leg)}
           className={[
-            "rounded-lg border px-3 py-1 text-xs font-semibold",
-            isDay
-              ? "border-blue-300 bg-blue-50 text-blue-900 hover:bg-blue-100"
-              : "border-yellow-600 bg-yellow-900/40 text-yellow-200 hover:bg-yellow-800/60",
-          ].join(" ")}
+  "rounded-lg px-3 py-1 text-xs font-semibold transition",
+  "bg-[#163D9C] text-white hover:bg-[#12337F]",
+].join(" ")}
+
         >
           Modifica
         </button>
@@ -1170,7 +1174,9 @@ style={isDay ? undefined : { colorScheme: "dark" }}
                       {m.days.map((d) => (
                         <details key={d.dayISO} className={`${innerCls}`}>
                           <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                            <div className="text-sm text-zinc-100">{formatDateIT(d.dayISO)}</div>
+                            <div className={`text-sm ${isDay ? "text-slate-900" : "text-zinc-100"}`}>
+  {formatDateIT(d.dayISO)}
+</div>
                             <div className={`text-sm font-semibold ${signClass(d.dayProfit, isDay)}`}>
                               {d.dayProfit >= 0 ? "+" : ""}
                               {euro(d.dayProfit)}
