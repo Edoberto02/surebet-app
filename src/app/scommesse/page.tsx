@@ -924,17 +924,22 @@ if (playersUnique.length > 0) {
       </div>
 
       <label className="text-sm text-blue-100">
-        Tipo
-        <select
-          value={betMode}
-          onChange={(e) => setBetMode(e.target.value as any)}
-          className="ml-2 mt-1 rounded-xl border border-blue-200 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-900 outline-none"
-          style={isDay ? undefined : { colorScheme: "dark" }}
-        >
-          <option value="surebet">Surebet / Multipla (2+)</option>
-          <option value="single">Singola (1)</option>
-        </select>
-      </label>
+  Tipo
+  <select
+    value={betMode}
+    onChange={(e) => setBetMode(e.target.value as any)}
+    className={[
+      "ml-2 mt-1 rounded-xl px-3 py-2 text-sm font-semibold outline-none",
+      isDay
+        ? "border border-blue-200 bg-white/95 text-slate-900"
+        : "border border-zinc-700 bg-zinc-950 text-white",
+    ].join(" ")}
+    style={isDay ? undefined : { colorScheme: "dark" }}
+  >
+    <option value="surebet">Surebet / Multipla (2+)</option>
+    <option value="single">Singola (1)</option>
+  </select>
+</label>
     </div>
   </div>
 
