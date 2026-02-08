@@ -914,161 +914,165 @@ if (playersUnique.length > 0) {
       ) : (
         <>
           {/* Nuova bet */}
-          <div className={`mt-6 ${panelCls} p-4`}>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Nuova bet</h2>
-              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+<div className="mt-6 overflow-hidden rounded-2xl border border-blue-200">
+  {/* Header blu */}
+  <div className="bg-gradient-to-r from-[#163D9C] to-blue-600 px-6 py-4">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h2 className="text-xl font-semibold tracking-wide text-white">Nuova bet</h2>
+        <div className="mt-1 text-sm text-blue-100">Inserisci una nuova bet (surebet o singola)</div>
+      </div>
 
-                Tipo
-                <select
-                  value={betMode}
-                  onChange={(e) => setBetMode(e.target.value as any)}
-                  className={`ml-2 ${inputCls}`}
-style={isDay ? undefined : { colorScheme: "dark" }}
-
-                >
-                  <option value="surebet">Surebet / Multipla (2+)</option>
-                  <option value="single">Singola (1)</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
-
-                Data partita
-                <input
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className={inputCls}
-                />
-              </label>
-
-              <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
-
-                Ora partita
-                <input
-                  type="time"
-                  value={newTime}
-                  onChange={(e) => setNewTime(e.target.value)}
-                  className={inputCls}
-                />
-              </label>
-            </div>
-            <div className={`mt-4 ${innerCls} p-3`}>
-  <div className={`text-sm font-semibold ${isDay ? "text-slate-800" : "text-zinc-200"}`}>
-  Chi ha giocato la bet (bonus 10%)
-</div>
-
-<div className={`mt-1 text-xs ${isDay ? "text-slate-600" : "text-zinc-400"}`}>
-  Se selezioni tutti i soci, il bonus non si applica (ripartizione pro-quota normale).
-</div>
-
-
-  <div className="mt-3 flex flex-wrap gap-2">
-    {partners.map((p) => {
-      const active = newPlayers.includes(p.id);
-      return (
-        <button
-          key={p.id}
-          type="button"
-          onClick={() => {
-            setNewPlayers((prev) =>
-              prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
-            );
-          }}
-          className={[
-  "rounded-xl px-3 py-2 text-xs font-semibold border transition",
-  active
-    ? (isDay
-        ? "border-blue-300 bg-blue-200 text-blue-900"
-        : "border-blue-600 bg-blue-900/40 text-blue-200")
-    : (isDay
-        ? "border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100"
-        : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900"),
-].join(" ")}
-
+      <label className="text-sm text-blue-100">
+        Tipo
+        <select
+          value={betMode}
+          onChange={(e) => setBetMode(e.target.value as any)}
+          className="ml-2 mt-1 rounded-xl border border-blue-200 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-900 outline-none"
+          style={isDay ? undefined : { colorScheme: "dark" }}
         >
-          {p.name}
-        </button>
-      );
-    })}
+          <option value="surebet">Surebet / Multipla (2+)</option>
+          <option value="single">Singola (1)</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  {/* Contenuto (resta uguale, solo dentro un body) */}
+  <div className={`${panelCls} p-4`}>
+    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+      <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+        Data partita
+        <input
+          type="date"
+          value={newDate}
+          onChange={(e) => setNewDate(e.target.value)}
+          className={inputCls}
+        />
+      </label>
+
+      <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+        Ora partita
+        <input
+          type="time"
+          value={newTime}
+          onChange={(e) => setNewTime(e.target.value)}
+          className={inputCls}
+        />
+      </label>
+    </div>
+
+    <div className={`mt-4 ${innerCls} p-3`}>
+      <div className={`text-sm font-semibold ${isDay ? "text-slate-800" : "text-zinc-200"}`}>
+        Chi ha giocato la bet (bonus 10%)
+      </div>
+
+      <div className={`mt-1 text-xs ${isDay ? "text-slate-600" : "text-zinc-400"}`}>
+        Se selezioni tutti i soci, il bonus non si applica (ripartizione pro-quota normale).
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {partners.map((p) => {
+          const active = newPlayers.includes(p.id);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => {
+                setNewPlayers((prev) =>
+                  prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+                );
+              }}
+              className={[
+                "rounded-xl px-3 py-2 text-xs font-semibold border transition",
+                active
+                  ? isDay
+                    ? "border-blue-300 bg-blue-200 text-blue-900"
+                    : "border-blue-600 bg-blue-900/40 text-blue-200"
+                  : isDay
+                  ? "border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100"
+                  : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900",
+              ].join(" ")}
+            >
+              {p.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+
+    <div className="mt-6 flex items-center justify-between">
+      <h3 className="text-base font-semibold">Legs</h3>
+      <button onClick={addNewLeg} className={btnNeutral}>
+        + Aggiungi sito
+      </button>
+    </div>
+
+    <div className="mt-4 space-y-3">
+      {newLegs.map((l, i) => (
+        <div key={i} className={`${innerCls} p-3`}>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+            <div className="md:col-span-2">
+              <SearchSelect
+                label="Sito"
+                value={l.account_id}
+                options={accountOptions}
+                onChange={(id) => updateNewLeg(i, { account_id: id })}
+                isDay={isDay}
+              />
+            </div>
+
+            <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+              Importo
+              <input
+                value={l.stake}
+                onChange={(e) => updateNewLeg(i, { stake: e.target.value })}
+                className={inputCls}
+              />
+            </label>
+
+            <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+              Quota
+              <input
+                value={l.odds}
+                onChange={(e) => updateNewLeg(i, { odds: e.target.value })}
+                className={inputCls}
+              />
+            </label>
+
+            <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
+              Esito
+              <select
+                value={l.status}
+                onChange={(e) => updateNewLeg(i, { status: e.target.value as any })}
+                className={inputCls}
+                style={isDay ? undefined : { colorScheme: "dark" }}
+              >
+                <option value="open">open</option>
+                <option value="win">win</option>
+                <option value="loss">loss</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-3">
+            <button onClick={() => removeNewLeg(i)} className={btnCream}>
+              Rimuovi leg
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <button
+      onClick={saveNewBet}
+      className="mt-6 rounded-xl bg-blue-800 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
+    >
+      Salva bet
+    </button>
   </div>
 </div>
 
-
-            <div className="mt-6 flex items-center justify-between">
-              <h3 className="text-base font-semibold">Legs</h3>
-              <button onClick={addNewLeg} className={btnNeutral}>
-  + Aggiungi sito
-</button>
- 
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {newLegs.map((l, i) => (
-                <div key={i} className={`${innerCls} p-3`}>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-                    <div className="md:col-span-2">
-                      <SearchSelect
-  label="Sito"
-  value={l.account_id}
-  options={accountOptions}
-  onChange={(id) => updateNewLeg(i, { account_id: id })}
-  isDay={isDay}
-/>
-
-                    </div>
-
-                    <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
-
-                      Importo
-                      <input value={l.stake} onChange={(e) => updateNewLeg(i, { stake: e.target.value })}
-                        className={inputCls}
- />
-                    </label>
-
-                    <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
-
-                      Quota
-                     <input
-  value={l.odds}
-  onChange={(e) => updateNewLeg(i, { odds: e.target.value })}
-  className={inputCls}
-/>
-
-                    </label>
-
-                    <label className={`text-sm ${isDay ? "text-slate-700" : "text-zinc-300"}`}>
-
-                      Esito
-                      <select value={l.status} onChange={(e) => updateNewLeg(i, { status: e.target.value as any })}
-                        className={inputCls}
-style={isDay ? undefined : { colorScheme: "dark" }}
-
-                      >
-                        <option value="open">open</option>
-                        <option value="win">win</option>
-                        <option value="loss">loss</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="mt-3">
-                    <button onClick={() => removeNewLeg(i)} className={btnCream}>
-  Rimuovi leg
-</button>
-
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button onClick={saveNewBet} className="mt-6 rounded-xl bg-blue-800 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
-              Salva bet
-            </button>
-          </div>
 
                     {/* In corso */}
           <div className={`mt-6 ${panelCls} p-4`}>
