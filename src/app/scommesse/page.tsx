@@ -646,7 +646,14 @@ if (playersUnique.length > 0) {
     .from("bets")
     .update({ bettors_finalized: true })
     .eq("id", bet_id);
+
   if (lockErr) return setMsg(lockErr.message);
+}
+
+// ✅ crea snapshot quote soci (necessario per allocazioni/bonus nel riepilogo)
+{
+  const { error: snapErr } = await supabase.rpc("create_bet_partner_snapshot", { p_bet_id: bet_id });
+  if (snapErr) return setMsg(snapErr.message);
 }
 
 
@@ -694,13 +701,15 @@ if (playersUnique.length > 0) {
 
   if (isNowClosed) {
     const y = window.scrollY;
+    {
+  const { error: snapErr } = await supabase.rpc("create_bet_partner_snapshot", { p_bet_id: betId });
+  if (snapErr) return setMsg(snapErr.message);
+}
+
 
     // 4) calcolo bonus/malus + allocazioni (scrive su DB)
     const { error: allocErr } = await supabase.rpc("compute_bet_allocations", { p_bet_id: betId });
     if (allocErr) return setMsg(allocErr.message);
-
-    const { error: feeErr } = await supabase.rpc("compute_bet_person_fees", { p_bet_id: betId });
-    if (feeErr) return setMsg(feeErr.message);
 
     // 5) refresh dati
     await loadAll();
