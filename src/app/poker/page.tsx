@@ -70,6 +70,10 @@ export default function PokerPage() {
     ? "rounded-xl border border-[#D8D1C3] bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-[#F4F0E6]"
     : "rounded-xl bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700";
 
+  const btnSuccess = isDay
+    ? "rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 transition"
+    : "rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 transition";
+
   const activeTabCls = isDay
     ? "rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
     : "rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white";
@@ -183,6 +187,38 @@ export default function PokerPage() {
     return sessions.filter((s) => s.status === "closed");
   }, [sessions]);
 
+  const summaryByClosedSessionId = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        count: number;
+        totalBuyIn: number;
+        totalItm: number;
+        totalBounty: number;
+        totalProfit: number;
+      }
+    >();
+
+    for (const session of closedSessions) {
+      const sessionEntries = entriesBySessionId.get(session.id) ?? [];
+
+      const totalBuyIn = sessionEntries.reduce((sum, x) => sum + Number(x.buy_in ?? 0), 0);
+      const totalItm = sessionEntries.reduce((sum, x) => sum + Number(x.itm ?? 0), 0);
+      const totalBounty = sessionEntries.reduce((sum, x) => sum + Number(x.bounty ?? 0), 0);
+      const totalProfit = totalItm + totalBounty - totalBuyIn;
+
+      map.set(session.id, {
+        count: sessionEntries.length,
+        totalBuyIn,
+        totalItm,
+        totalBounty,
+        totalProfit,
+      });
+    }
+
+    return map;
+  }, [closedSessions, entriesBySessionId]);
+
   async function createTournament() {
     setErrorMsg("");
 
@@ -295,9 +331,37 @@ export default function PokerPage() {
     );
   }
 
+  async function closeSession(sessionId: string) {
+    setErrorMsg("");
+
+    const { error } = await supabase.rpc("close_poker_session", {
+      p_session_id: sessionId,
+    });
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+
+    await loadAll(false);
+    setActiveView("riepilogo");
+  }
+
   function SessionColumn({ playerName }: { playerName: "Edoardo" | "Andrea" }) {
     const session = openSessionsByPlayer.get(playerName);
     const sessionEntries = session ? entriesBySessionId.get(session.id) ?? [] : [];
+
+    const canClose =
+      !!session &&
+      sessionEntries.length > 0 &&
+      sessionEntries.every(
+        (entry) => entry.itm !== null && entry.bounty !== null
+      );
+
+    const totalBuyIn = sessionEntries.reduce((sum, x) => sum + Number(x.buy_in ?? 0), 0);
+    const totalItm = sessionEntries.reduce((sum, x) => sum + Number(x.itm ?? 0), 0);
+    const totalBounty = sessionEntries.reduce((sum, x) => sum + Number(x.bounty ?? 0), 0);
+    const totalProfit = totalItm + totalBounty - totalBuyIn;
 
     return (
       <div className={panelCls + " p-6"}>
@@ -323,46 +387,76 @@ export default function PokerPage() {
             Sessione aperta ma senza tornei.
           </div>
         ) : (
-          <div className="mt-4 space-y-3">
-            {sessionEntries.map((entry) => (
-              <div key={entry.id} className={innerCls + " p-4"}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold">{entry.tournament_name_snapshot}</div>
-                    <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                      Buy-in: {euro(Number(entry.buy_in ?? 0))}
+          <>
+            <div className="mt-4 space-y-3">
+              {sessionEntries.map((entry) => (
+                <div key={entry.id} className={innerCls + " p-4"}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">{entry.tournament_name_snapshot}</div>
+                      <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                        Buy-in: {euro(Number(entry.buy_in ?? 0))}
+                      </div>
+                    </div>
+
+                    <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                      {formatDateTimeIT(entry.created_at)}
                     </div>
                   </div>
 
-                  <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                    {formatDateTimeIT(entry.created_at)}
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+                      ITM
+                      <input
+                        defaultValue={entry.itm ?? ""}
+                        onBlur={(e) => updateEntryField(entry.id, "itm", e.target.value)}
+                        className={inputCls}
+                        placeholder="Inserisci ITM"
+                      />
+                    </label>
+
+                    <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+                      Bounty
+                      <input
+                        defaultValue={entry.bounty ?? ""}
+                        onBlur={(e) => updateEntryField(entry.id, "bounty", e.target.value)}
+                        className={inputCls}
+                        placeholder="Inserisci Bounty"
+                      />
+                    </label>
                   </div>
                 </div>
+              ))}
+            </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                    ITM
-                    <input
-                      defaultValue={entry.itm ?? ""}
-                      onBlur={(e) => updateEntryField(entry.id, "itm", e.target.value)}
-                      className={inputCls}
-                      placeholder="Inserisci ITM"
-                    />
-                  </label>
-
-                  <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                    Bounty
-                    <input
-                      defaultValue={entry.bounty ?? ""}
-                      onBlur={(e) => updateEntryField(entry.id, "bounty", e.target.value)}
-                      className={inputCls}
-                      placeholder="Inserisci Bounty"
-                    />
-                  </label>
+            <div className={innerCls + " mt-4 p-4"}>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="font-semibold">Tornei:</span> {sessionEntries.length}
+                </div>
+                <div>
+                  <span className="font-semibold">Buy-in totale:</span> {euro(totalBuyIn)}
+                </div>
+                <div>
+                  <span className="font-semibold">ITM totale:</span> {euro(totalItm)}
+                </div>
+                <div>
+                  <span className="font-semibold">Bounty totale:</span> {euro(totalBounty)}
+                </div>
+                <div className="col-span-2">
+                  <span className="font-semibold">Profitto sessione:</span> {euro(totalProfit)}
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+
+            {canClose && (
+              <div className="mt-4">
+                <button onClick={() => closeSession(session.id)} className={btnSuccess}>
+                  Termina sessione
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -402,7 +496,6 @@ export default function PokerPage() {
           <div className={isDay ? "text-slate-600" : "text-zinc-400"}>Caricamento…</div>
         ) : activeView === "sessione" ? (
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
-            {/* SINISTRA */}
             <section className="space-y-6">
               <div className={panelCls + " p-6"}>
                 <h2 className="text-xl font-semibold">Sessione Corrente</h2>
@@ -417,7 +510,6 @@ export default function PokerPage() {
               </div>
             </section>
 
-            {/* DESTRA */}
             <section className={panelCls + " p-6"}>
               <h2 className="text-xl font-semibold">Nuova Sessione</h2>
 
@@ -514,7 +606,7 @@ export default function PokerPage() {
           <section className={panelCls + " p-6"}>
             <h2 className="text-xl font-semibold">Riepilogo</h2>
             <div className={isDay ? "mt-2 text-sm text-slate-600" : "mt-2 text-sm text-zinc-400"}>
-              Per ora qui mostriamo solo l’elenco semplice delle sessioni chiuse.
+              Qui trovi le sessioni chiuse con i totali principali.
             </div>
 
             {closedSessions.length === 0 ? (
@@ -523,17 +615,50 @@ export default function PokerPage() {
               </div>
             ) : (
               <div className="mt-6 space-y-3">
-                {closedSessions.map((session) => (
-                  <div key={session.id} className={innerCls + " p-4"}>
-                    <div className="text-sm font-semibold">{session.player_name}</div>
-                    <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                      Apertura: {formatDateTimeIT(session.created_at)}
+                {closedSessions.map((session) => {
+                  const summary = summaryByClosedSessionId.get(session.id) ?? {
+                    count: 0,
+                    totalBuyIn: 0,
+                    totalItm: 0,
+                    totalBounty: 0,
+                    totalProfit: 0,
+                  };
+
+                  return (
+                    <div key={session.id} className={innerCls + " p-4"}>
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="text-sm font-semibold">{session.player_name}</div>
+                          <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                            Apertura: {formatDateTimeIT(session.created_at)}
+                          </div>
+                          <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                            Chiusura: {session.closed_at ? formatDateTimeIT(session.closed_at) : "—"}
+                          </div>
+                        </div>
+
+                        <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                          Tornei: {summary.count}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="font-semibold">Totale buy-in:</span> {euro(summary.totalBuyIn)}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Totale ITM:</span> {euro(summary.totalItm)}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Totale bounty:</span> {euro(summary.totalBounty)}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Profitto finale:</span> {euro(summary.totalProfit)}
+                        </div>
+                      </div>
                     </div>
-                    <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                      Chiusura: {session.closed_at ? formatDateTimeIT(session.closed_at) : "—"}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
