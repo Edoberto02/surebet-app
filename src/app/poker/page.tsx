@@ -41,13 +41,27 @@ type Option = {
   label: string;
 };
 
-type ClosedEntryPoint = {
+type ProfitEvent = {
   player: "Edoardo" | "Andrea";
+  at: string;
+  delta: number;
+  label: string;
+  kind: "buyin" | "return";
+};
+
+type CumulativePoint = {
+  x: number;
+  y: number;
+  at: string;
+  label: string;
+  delta: number;
+  kind: "buyin" | "return";
+};
+
+type TournamentRankingRow = {
   tournament: string;
-  eventAt: string;
-  singleProfit: number;
-  cumulativeProfit: number;
-  globalIndex: number;
+  totalProfit: number;
+  playedCount: number;
 };
 
 function euro(n: number) {
@@ -169,64 +183,72 @@ function SearchSelect({
   );
 }
 
-function LineChart({
-  points,
+function SharkScopeStyleChart({
+  edoardoPoints,
+  andreaPoints,
   isDay,
 }: {
-  points: {
-    Edoardo: ClosedEntryPoint[];
-    Andrea: ClosedEntryPoint[];
-    totalCount: number;
-  };
+  edoardoPoints: CumulativePoint[];
+  andreaPoints: CumulativePoint[];
   isDay: boolean;
 }) {
-  const width = 980;
-  const height = 340;
-  const padLeft = 52;
-  const padRight = 20;
+  const width = 1100;
+  const height = 380;
+  const padLeft = 58;
+  const padRight = 18;
   const padTop = 20;
   const padBottom = 42;
 
-  const allY = [
-    0,
-    ...points.Edoardo.map((p) => p.cumulativeProfit),
-    ...points.Andrea.map((p) => p.cumulativeProfit),
-  ];
+  const allPoints = [...edoardoPoints, ...andreaPoints];
+  if (allPoints.length === 0) {
+    return (
+      <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+        Nessun dato disponibile per il grafico Profit/Loss.
+      </div>
+    );
+  }
 
-  const minY = Math.min(...allY);
-  const maxY = Math.max(...allY);
-  const span = Math.max(10, maxY - minY);
-  const yMin = minY - span * 0.12;
-  const yMax = maxY + span * 0.12;
+  const minX = 0;
+  const maxX = Math.max(
+    edoardoPoints.length ? edoardoPoints[edoardoPoints.length - 1].x : 0,
+    andreaPoints.length ? andreaPoints[andreaPoints.length - 1].x : 0,
+    1
+  );
 
-  const xScale = (i: number) => {
-    if (points.totalCount <= 1) return width / 2;
+  const allY = [0, ...allPoints.map((p) => p.y)];
+  const minYRaw = Math.min(...allY);
+  const maxYRaw = Math.max(...allY);
+  const span = Math.max(20, maxYRaw - minYRaw);
+  const minY = minYRaw - span * 0.08;
+  const maxY = maxYRaw + span * 0.08;
+
+  const xScale = (x: number) => {
     const usable = width - padLeft - padRight;
-    return padLeft + (i / (points.totalCount - 1)) * usable;
+    return padLeft + ((x - minX) / (maxX - minX || 1)) * usable;
   };
 
-  const yScale = (v: number) => {
+  const yScale = (y: number) => {
     const usable = height - padTop - padBottom;
-    return padTop + ((yMax - v) / (yMax - yMin || 1)) * usable;
+    return padTop + ((maxY - y) / (maxY - minY || 1)) * usable;
   };
 
-  const pathFor = (arr: ClosedEntryPoint[]) =>
-    arr
-      .map((p, idx) => `${idx === 0 ? "M" : "L"} ${xScale(p.globalIndex)} ${yScale(p.cumulativeProfit)}`)
-      .join(" ");
+  const buildPath = (points: CumulativePoint[]) => {
+    if (points.length === 0) return "";
+    return points.map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.x)} ${yScale(p.y)}`).join(" ");
+  };
 
   const zeroY = yScale(0);
-
-  const yTicks = [yMin, (yMin + yMax) / 2, yMax];
+  const ticks = 5;
+  const yTickValues = Array.from({ length: ticks }, (_, i) => minY + ((maxY - minY) / (ticks - 1)) * i);
 
   return (
     <div className="overflow-x-auto">
-      <svg width={width} height={height} className="min-w-[980px]">
-        <line x1={padLeft} y1={zeroY} x2={width - padRight} y2={zeroY} stroke={isDay ? "#94a3b8" : "#52525b"} strokeDasharray="4 4" />
+      <svg width={width} height={height} className="min-w-[1100px]">
         <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
         <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
+        <line x1={padLeft} y1={zeroY} x2={width - padRight} y2={zeroY} stroke={isDay ? "#94a3b8" : "#52525b"} strokeDasharray="4 4" />
 
-        {yTicks.map((tick, i) => (
+        {yTickValues.map((tick, i) => (
           <g key={i}>
             <line
               x1={padLeft}
@@ -247,101 +269,123 @@ function LineChart({
           </g>
         ))}
 
-        {points.Edoardo.length > 0 && (
-          <path d={pathFor(points.Edoardo)} fill="none" stroke="#2563eb" strokeWidth="3" />
+        {edoardoPoints.length > 0 && (
+          <path d={buildPath(edoardoPoints)} fill="none" stroke="#2563eb" strokeWidth="2.5" />
         )}
-        {points.Andrea.length > 0 && (
-          <path d={pathFor(points.Andrea)} fill="none" stroke="#dc2626" strokeWidth="3" />
+        {andreaPoints.length > 0 && (
+          <path d={buildPath(andreaPoints)} fill="none" stroke="#dc2626" strokeWidth="2.5" />
         )}
 
-        {points.Edoardo.map((p, i) => (
-          <circle key={`e-${i}`} cx={xScale(p.globalIndex)} cy={yScale(p.cumulativeProfit)} r="4" fill="#2563eb">
-            <title>{`Edoardo · ${p.tournament} · ${formatDateTimeIT(p.eventAt)} · Torneo ${euro(p.singleProfit)} · Totale ${euro(p.cumulativeProfit)}`}</title>
+        {edoardoPoints.map((p, i) => (
+          <circle key={`e-${i}`} cx={xScale(p.x)} cy={yScale(p.y)} r="3.5" fill="#2563eb">
+            <title>{`Edoardo · ${p.label} · ${formatDateTimeIT(p.at)} · ${p.kind === "buyin" ? "Buy-in" : "Incasso"} ${euro(p.delta)} · Totale ${euro(p.y)}`}</title>
           </circle>
         ))}
 
-        {points.Andrea.map((p, i) => (
-          <circle key={`a-${i}`} cx={xScale(p.globalIndex)} cy={yScale(p.cumulativeProfit)} r="4" fill="#dc2626">
-            <title>{`Andrea · ${p.tournament} · ${formatDateTimeIT(p.eventAt)} · Torneo ${euro(p.singleProfit)} · Totale ${euro(p.cumulativeProfit)}`}</title>
+        {andreaPoints.map((p, i) => (
+          <circle key={`a-${i}`} cx={xScale(p.x)} cy={yScale(p.y)} r="3.5" fill="#dc2626">
+            <title>{`Andrea · ${p.label} · ${formatDateTimeIT(p.at)} · ${p.kind === "buyin" ? "Buy-in" : "Incasso"} ${euro(p.delta)} · Totale ${euro(p.y)}`}</title>
           </circle>
         ))}
 
-        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" fill={isDay ? "#64748b" : "#a1a1aa"}>
-          Tempo / sequenza tornei chiusi
+        <text
+          x={padLeft - 38}
+          y={height / 2}
+          textAnchor="middle"
+          fontSize="12"
+          fill={isDay ? "#64748b" : "#a1a1aa"}
+          transform={`rotate(-90 ${padLeft - 38} ${height / 2})`}
+        >
+          Profitto cumulato (€)
+        </text>
+
+        <text
+          x={width / 2}
+          y={height - 10}
+          textAnchor="middle"
+          fontSize="12"
+          fill={isDay ? "#64748b" : "#a1a1aa"}
+        >
+          Tempo / eventi di buy-in e incasso
         </text>
       </svg>
     </div>
   );
 }
 
-function BarChart({
+function TournamentRankingChart({
   data,
   isDay,
 }: {
-  data: Array<{ tournament: string; Edoardo: number; Andrea: number }>;
+  data: TournamentRankingRow[];
   isDay: boolean;
 }) {
-  const groupWidth = 108;
-  const width = Math.max(980, data.length * groupWidth + 120);
-  const height = 360;
-  const padLeft = 52;
-  const padRight = 20;
+  if (data.length === 0) {
+    return (
+      <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+        Nessun dato disponibile per il ranking tornei.
+      </div>
+    );
+  }
+
+  const width = 1100;
+  const rowH = 38;
+  const height = Math.max(360, data.length * rowH + 70);
+  const padLeft = 260;
+  const padRight = 40;
   const padTop = 20;
-  const padBottom = 95;
+  const padBottom = 20;
 
-  const allY = [0, ...data.map((d) => d.Edoardo), ...data.map((d) => d.Andrea)];
-  const minY = Math.min(...allY);
-  const maxY = Math.max(...allY);
-  const span = Math.max(10, maxY - minY);
-  const yMin = minY - span * 0.12;
-  const yMax = maxY + span * 0.12;
+  const allValues = [0, ...data.map((d) => d.totalProfit)];
+  const minV = Math.min(...allValues);
+  const maxV = Math.max(...allValues);
+  const span = Math.max(20, maxV - minV);
+  const minX = Math.min(0, minV - span * 0.08);
+  const maxX = Math.max(0, maxV + span * 0.08);
 
-  const yScale = (v: number) => {
-    const usable = height - padTop - padBottom;
-    return padTop + ((yMax - v) / (yMax - yMin || 1)) * usable;
+  const xScale = (v: number) => {
+    const usable = width - padLeft - padRight;
+    return padLeft + ((v - minX) / (maxX - minX || 1)) * usable;
   };
 
-  const zeroY = yScale(0);
-  const usableWidth = width - padLeft - padRight;
-  const step = data.length > 0 ? usableWidth / data.length : usableWidth;
+  const zeroX = xScale(0);
 
   return (
     <div className="overflow-x-auto">
-      <svg width={width} height={height} className="min-w-[980px]">
-        <line x1={padLeft} y1={zeroY} x2={width - padRight} y2={zeroY} stroke={isDay ? "#94a3b8" : "#52525b"} strokeDasharray="4 4" />
-        <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
-        <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
+      <svg width={width} height={height} className="min-w-[1100px]">
+        <line x1={zeroX} y1={padTop} x2={zeroX} y2={height - padBottom} stroke={isDay ? "#94a3b8" : "#52525b"} strokeDasharray="4 4" />
 
         {data.map((row, idx) => {
-          const baseX = padLeft + idx * step + step / 2;
-          const barW = 24;
-
-          const eTop = yScale(Math.max(row.Edoardo, 0));
-          const eBottom = yScale(Math.min(row.Edoardo, 0));
-          const aTop = yScale(Math.max(row.Andrea, 0));
-          const aBottom = yScale(Math.min(row.Andrea, 0));
-
-          const eColor = row.Edoardo >= 0 ? "#16a34a" : "#dc2626";
-          const aColor = row.Andrea >= 0 ? "#22c55e" : "#ef4444";
+          const y = padTop + idx * rowH + 6;
+          const barStart = Math.min(zeroX, xScale(row.totalProfit));
+          const barEnd = Math.max(zeroX, xScale(row.totalProfit));
+          const barWidth = Math.max(2, barEnd - barStart);
+          const color = row.totalProfit >= 0 ? "#16a34a" : "#dc2626";
 
           return (
             <g key={row.tournament}>
-              <rect x={baseX - 28} y={Math.min(eTop, eBottom)} width={barW} height={Math.max(2, Math.abs(eBottom - eTop))} fill={eColor}>
-                <title>{`Edoardo · ${row.tournament} · ${euro(row.Edoardo)}`}</title>
-              </rect>
-              <rect x={baseX + 4} y={Math.min(aTop, aBottom)} width={barW} height={Math.max(2, Math.abs(aBottom - aTop))} fill={aColor}>
-                <title>{`Andrea · ${row.tournament} · ${euro(row.Andrea)}`}</title>
+              <text
+                x={padLeft - 10}
+                y={y + 12}
+                textAnchor="end"
+                fontSize="12"
+                fill={isDay ? "#0f172a" : "#e4e4e7"}
+              >
+                {row.tournament}
+              </text>
+
+              <rect x={barStart} y={y - 10} width={barWidth} height={18} rx="4" fill={color}>
+                <title>{`${row.tournament} · ${euro(row.totalProfit)} · Giocato ${row.playedCount} volte`}</title>
               </rect>
 
               <text
-                x={baseX}
-                y={height - padBottom + 16}
-                textAnchor="middle"
-                fontSize="11"
-                fill={isDay ? "#64748b" : "#a1a1aa"}
-                transform={`rotate(28 ${baseX} ${height - padBottom + 16})`}
+                x={barEnd + (row.totalProfit >= 0 ? 8 : -8)}
+                y={y + 4}
+                textAnchor={row.totalProfit >= 0 ? "start" : "end"}
+                fontSize="12"
+                fill={isDay ? "#334155" : "#d4d4d8"}
               >
-                {row.tournament}
+                {euro(row.totalProfit)} · {row.playedCount}x
               </text>
             </g>
           );
@@ -648,88 +692,90 @@ export default function PokerPage() {
     return { edoardo, andrea };
   }, [accounts]);
 
-  const closedEntryTimeline = useMemo(() => {
-    const flattened: Array<{
-      player: "Edoardo" | "Andrea";
-      tournament: string;
-      eventAt: string;
-      singleProfit: number;
-    }> = [];
+  const sharkChartData = useMemo(() => {
+    const events: ProfitEvent[] = [];
 
     for (const session of closedSessions) {
       const sessionEntries = entriesBySessionId.get(session.id) ?? [];
       for (const entry of sessionEntries) {
-        flattened.push({
+        events.push({
           player: session.player_name,
-          tournament: entry.tournament_name_snapshot,
-          eventAt: session.closed_at ?? entry.created_at,
-          singleProfit: Number(entry.itm ?? 0) + Number(entry.bounty ?? 0) - Number(entry.buy_in ?? 0),
+          at: entry.created_at,
+          delta: -Number(entry.buy_in ?? 0),
+          label: entry.tournament_name_snapshot,
+          kind: "buyin",
+        });
+
+        const totalReturn = Number(entry.itm ?? 0) + Number(entry.bounty ?? 0);
+        events.push({
+          player: session.player_name,
+          at: session.closed_at ?? entry.created_at,
+          delta: totalReturn,
+          label: entry.tournament_name_snapshot,
+          kind: "return",
         });
       }
     }
 
-    flattened.sort((a, b) => new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime());
+    events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
-    let runningE = 0;
-    let runningA = 0;
-    const edoardo: ClosedEntryPoint[] = [];
-    const andrea: ClosedEntryPoint[] = [];
+    let edoardoRunning = 0;
+    let andreaRunning = 0;
+    let edoardoX = 0;
+    let andreaX = 0;
 
-    flattened.forEach((row, index) => {
-      if (row.player === "Edoardo") {
-        runningE += row.singleProfit;
-        edoardo.push({
-          player: "Edoardo",
-          tournament: row.tournament,
-          eventAt: row.eventAt,
-          singleProfit: row.singleProfit,
-          cumulativeProfit: runningE,
-          globalIndex: index,
+    const edoardoPoints: CumulativePoint[] = [{ x: 0, y: 0, at: new Date().toISOString(), label: "Start", delta: 0, kind: "buyin" }];
+    const andreaPoints: CumulativePoint[] = [{ x: 0, y: 0, at: new Date().toISOString(), label: "Start", delta: 0, kind: "buyin" }];
+
+    for (const ev of events) {
+      if (ev.player === "Edoardo") {
+        edoardoX += 1;
+        edoardoRunning += ev.delta;
+        edoardoPoints.push({
+          x: edoardoX,
+          y: edoardoRunning,
+          at: ev.at,
+          label: ev.label,
+          delta: ev.delta,
+          kind: ev.kind,
         });
       } else {
-        runningA += row.singleProfit;
-        andrea.push({
-          player: "Andrea",
-          tournament: row.tournament,
-          eventAt: row.eventAt,
-          singleProfit: row.singleProfit,
-          cumulativeProfit: runningA,
-          globalIndex: index,
+        andreaX += 1;
+        andreaRunning += ev.delta;
+        andreaPoints.push({
+          x: andreaX,
+          y: andreaRunning,
+          at: ev.at,
+          label: ev.label,
+          delta: ev.delta,
+          kind: ev.kind,
         });
       }
-    });
+    }
 
-    return {
-      Edoardo: edoardo,
-      Andrea: andrea,
-      totalCount: flattened.length,
-    };
+    return { edoardoPoints, andreaPoints };
   }, [closedSessions, entriesBySessionId]);
 
-  const tournamentPerformanceData = useMemo(() => {
-    const map = new Map<string, { Edoardo: number; Andrea: number }>();
+  const tournamentRanking = useMemo(() => {
+    const map = new Map<string, TournamentRankingRow>();
 
     for (const session of closedSessions) {
       const sessionEntries = entriesBySessionId.get(session.id) ?? [];
       for (const entry of sessionEntries) {
-        const key = entry.tournament_name_snapshot;
-        const cur = map.get(key) ?? { Edoardo: 0, Andrea: 0 };
         const profit = Number(entry.itm ?? 0) + Number(entry.bounty ?? 0) - Number(entry.buy_in ?? 0);
+        const cur = map.get(entry.tournament_name_snapshot) ?? {
+          tournament: entry.tournament_name_snapshot,
+          totalProfit: 0,
+          playedCount: 0,
+        };
 
-        if (session.player_name === "Edoardo") cur.Edoardo += profit;
-        if (session.player_name === "Andrea") cur.Andrea += profit;
-
-        map.set(key, cur);
+        cur.totalProfit += profit;
+        cur.playedCount += 1;
+        map.set(entry.tournament_name_snapshot, cur);
       }
     }
 
-    return Array.from(map.entries())
-      .map(([tournament, value]) => ({
-        tournament,
-        Edoardo: value.Edoardo,
-        Andrea: value.Andrea,
-      }))
-      .sort((a, b) => a.tournament.localeCompare(b.tournament));
+    return Array.from(map.values()).sort((a, b) => b.totalProfit - a.totalProfit);
   }, [closedSessions, entriesBySessionId]);
 
   async function createTournament() {
@@ -776,34 +822,34 @@ export default function PokerPage() {
   }
 
   async function saveEntryFields(entryId: string) {
-  setErrorMsg("");
-  const draft = draftValues[entryId] ?? { itm: "", bounty: "" };
-  const itm = toNumberInput(draft.itm);
-  const bounty = toNumberInput(draft.bounty);
+    setErrorMsg("");
+    const draft = draftValues[entryId] ?? { itm: "", bounty: "" };
+    const itm = toNumberInput(draft.itm);
+    const bounty = toNumberInput(draft.bounty);
 
-  if (!Number.isFinite(itm) || itm < 0 || !Number.isFinite(bounty) || bounty < 0) {
-    return setErrorMsg("ITM e Bounty devono essere numeri uguali o maggiori di 0");
+    if (!Number.isFinite(itm) || itm < 0 || !Number.isFinite(bounty) || bounty < 0) {
+      return setErrorMsg("ITM e Bounty devono essere numeri uguali o maggiori di 0");
+    }
+
+    const { error } = await supabase
+      .from("poker_session_entries")
+      .update({ itm, bounty })
+      .eq("id", entryId);
+
+    if (error) return setErrorMsg(error.message);
+
+    setEntries((prev) =>
+      prev.map((entry) => (entry.id === entryId ? { ...entry, itm, bounty } : entry))
+    );
+
+    setDraftValues((prev) => ({
+      ...prev,
+      [entryId]: {
+        itm: String(itm),
+        bounty: String(bounty),
+      },
+    }));
   }
-
-  const { error } = await supabase
-    .from("poker_session_entries")
-    .update({ itm, bounty })
-    .eq("id", entryId);
-
-  if (error) return setErrorMsg(error.message);
-
-  setEntries((prev) =>
-    prev.map((entry) => (entry.id === entryId ? { ...entry, itm, bounty } : entry))
-  );
-
-  setDraftValues((prev) => ({
-    ...prev,
-    [entryId]: {
-      itm: String(itm),
-      bounty: String(bounty),
-    },
-  }));
-}
 
   async function deleteEntry(entryId: string) {
     const ok = window.confirm("Vuoi eliminare questo torneo dalla sessione?");
@@ -1263,7 +1309,7 @@ export default function PokerPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-semibold tracking-wide text-white">Grafici</h2>
-                    <div className="mt-1 text-sm text-red-100">Analisi andamento profit/loss e performance per torneo.</div>
+                    <div className="mt-1 text-sm text-red-100">Andamento cumulato stile SharkScope e ranking dei tornei più profittevoli.</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1297,19 +1343,16 @@ export default function PokerPage() {
                 </div>
 
                 {chartView === "profitloss" ? (
-                  closedEntryTimeline.totalCount === 0 ? (
-                    <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
-                      Nessun dato disponibile per il grafico Profit/Loss.
-                    </div>
-                  ) : (
-                    <LineChart points={closedEntryTimeline} isDay={isDay} />
-                  )
-                ) : tournamentPerformanceData.length === 0 ? (
-                  <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
-                    Nessun dato disponibile per il grafico Tornei.
-                  </div>
+                  <SharkScopeStyleChart
+                    edoardoPoints={sharkChartData.edoardoPoints}
+                    andreaPoints={sharkChartData.andreaPoints}
+                    isDay={isDay}
+                  />
                 ) : (
-                  <BarChart data={tournamentPerformanceData} isDay={isDay} />
+                  <TournamentRankingChart
+                    data={tournamentRanking}
+                    isDay={isDay}
+                  />
                 )}
               </div>
             </section>
