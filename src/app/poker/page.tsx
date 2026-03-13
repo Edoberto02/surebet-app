@@ -776,20 +776,34 @@ export default function PokerPage() {
   }
 
   async function saveEntryFields(entryId: string) {
-    setErrorMsg("");
-    const draft = draftValues[entryId] ?? { itm: "", bounty: "" };
-    const itm = toNumberInput(draft.itm);
-    const bounty = toNumberInput(draft.bounty);
+  setErrorMsg("");
+  const draft = draftValues[entryId] ?? { itm: "", bounty: "" };
+  const itm = toNumberInput(draft.itm);
+  const bounty = toNumberInput(draft.bounty);
 
-    if (!Number.isFinite(itm) || itm < 0 || !Number.isFinite(bounty) || bounty < 0) {
-      return setErrorMsg("ITM e Bounty devono essere numeri uguali o maggiori di 0");
-    }
-
-    const { error } = await supabase.from("poker_session_entries").update({ itm, bounty }).eq("id", entryId);
-    if (error) return setErrorMsg(error.message);
-
-    setEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, itm, bounty } : entry)));
+  if (!Number.isFinite(itm) || itm < 0 || !Number.isFinite(bounty) || bounty < 0) {
+    return setErrorMsg("ITM e Bounty devono essere numeri uguali o maggiori di 0");
   }
+
+  const { error } = await supabase
+    .from("poker_session_entries")
+    .update({ itm, bounty })
+    .eq("id", entryId);
+
+  if (error) return setErrorMsg(error.message);
+
+  setEntries((prev) =>
+    prev.map((entry) => (entry.id === entryId ? { ...entry, itm, bounty } : entry))
+  );
+
+  setDraftValues((prev) => ({
+    ...prev,
+    [entryId]: {
+      itm: String(itm),
+      bounty: String(bounty),
+    },
+  }));
+}
 
   async function deleteEntry(entryId: string) {
     const ok = window.confirm("Vuoi eliminare questo torneo dalla sessione?");
