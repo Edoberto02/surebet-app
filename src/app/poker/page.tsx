@@ -74,6 +74,10 @@ export default function PokerPage() {
     ? "rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 transition"
     : "rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 transition";
 
+  const btnDanger = isDay
+    ? "rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 transition"
+    : "rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 transition";
+
   const activeTabCls = isDay
     ? "rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
     : "rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white";
@@ -96,6 +100,8 @@ export default function PokerPage() {
 
   const [newTournamentName, setNewTournamentName] = useState("");
   const [newTournamentBuyIn, setNewTournamentBuyIn] = useState("");
+
+  const [draftValues, setDraftValues] = useState<Record<string, { itm: string; bounty: string }>>({});
 
   async function loadAll(showLoading: boolean) {
     if (showLoading) setLoading(true);
@@ -129,9 +135,25 @@ export default function PokerPage() {
       return;
     }
 
+    const nextEntries = (entriesData ?? []) as PokerSessionEntryRow[];
+
     setTournaments((tournamentsData ?? []) as TournamentRow[]);
     setSessions((sessionsData ?? []) as PokerSessionRow[]);
-    setEntries((entriesData ?? []) as PokerSessionEntryRow[]);
+    setEntries(nextEntries);
+
+    setDraftValues((prev) => {
+      const next: Record<string, { itm: string; bounty: string }> = {};
+
+      for (const entry of nextEntries) {
+        next[entry.id] = prev[entry.id] ?? {
+          itm: entry.itm !== null ? String(entry.itm) : "",
+          bounty: entry.bounty !== null ? String(entry.bounty) : "",
+        };
+      }
+
+      return next;
+    });
+
     setLoading(false);
   }
 
@@ -184,7 +206,13 @@ export default function PokerPage() {
   }, [entries]);
 
   const closedSessions = useMemo(() => {
-    return sessions.filter((s) => s.status === "closed");
+    return sessions
+      .filter((s) => s.status === "closed")
+      .sort((a, b) => {
+        const aTime = a.closed_at ? new Date(a.closed_at).getTime() : 0;
+        const bTime = b.closed_at ? new Date(b.closed_at).getTime() : 0;
+        return bTime - aTime;
+      });
   }, [sessions]);
 
   const summaryByClosedSessionId = useMemo(() => {
@@ -300,23 +328,22 @@ export default function PokerPage() {
     await loadAll(false);
   }
 
-  async function updateEntryField(
-    entryId: string,
-    field: "itm" | "bounty",
-    value: string
-  ) {
+  async function saveEntryFields(entryId: string) {
     setErrorMsg("");
 
-    const num = toNumberInput(value);
+    const draft = draftValues[entryId] ?? { itm: "", bounty: "" };
 
-    if (!Number.isFinite(num) || num < 0) {
+    const itm = toNumberInput(draft.itm);
+    const bounty = toNumberInput(draft.bounty);
+
+    if (!Number.isFinite(itm) || itm < 0 || !Number.isFinite(bounty) || bounty < 0) {
       setErrorMsg("ITM e Bounty devono essere numeri uguali o maggiori di 0");
       return;
     }
 
     const { error } = await supabase
       .from("poker_session_entries")
-      .update({ [field]: num })
+      .update({ itm, bounty })
       .eq("id", entryId);
 
     if (error) {
@@ -326,9 +353,27 @@ export default function PokerPage() {
 
     setEntries((prev) =>
       prev.map((entry) =>
-        entry.id === entryId ? { ...entry, [field]: num } : entry
+        entry.id === entryId ? { ...entry, itm, bounty } : entry
       )
     );
+  }
+
+  async function deleteEntry(entryId: string) {
+    const ok = window.confirm("Vuoi eliminare questo torneo dalla sessione?");
+    if (!ok) return;
+
+    setErrorMsg("");
+
+    const { error } = await supabase.rpc("delete_poker_session_entry", {
+      p_entry_id: entryId,
+    });
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+
+    await loadAll(false);
   }
 
   async function closeSession(sessionId: string) {
@@ -389,44 +434,79 @@ export default function PokerPage() {
         ) : (
           <>
             <div className="mt-4 space-y-3">
-              {sessionEntries.map((entry) => (
-                <div key={entry.id} className={innerCls + " p-4"}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold">{entry.tournament_name_snapshot}</div>
-                      <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                        Buy-in: {euro(Number(entry.buy_in ?? 0))}
+              {sessionEntries.map((entry) => {
+                const currentDraft = draftValues[entry.id] ?? {
+                  itm: entry.itm !== null ? String(entry.itm) : "",
+                  bounty: entry.bounty !== null ? String(entry.bounty) : "",
+                };
+
+                return (
+                  <div key={entry.id} className={innerCls + " p-4"}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold">{entry.tournament_name_snapshot}</div>
+                        <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                          Buy-in: {euro(Number(entry.buy_in ?? 0))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                          {formatDateTimeIT(entry.created_at)}
+                        </div>
+
+                        <button onClick={() => deleteEntry(entry.id)} className={btnDanger}>
+                          Elimina
+                        </button>
                       </div>
                     </div>
 
-                    <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                      {formatDateTimeIT(entry.created_at)}
+                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+                        ITM
+                        <input
+                          value={currentDraft.itm}
+                          onChange={(e) =>
+                            setDraftValues((prev) => ({
+                              ...prev,
+                              [entry.id]: {
+                                itm: e.target.value,
+                                bounty: prev[entry.id]?.bounty ?? currentDraft.bounty,
+                              },
+                            }))
+                          }
+                          className={inputCls}
+                          placeholder="Inserisci ITM"
+                        />
+                      </label>
+
+                      <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+                        Bounty
+                        <input
+                          value={currentDraft.bounty}
+                          onChange={(e) =>
+                            setDraftValues((prev) => ({
+                              ...prev,
+                              [entry.id]: {
+                                itm: prev[entry.id]?.itm ?? currentDraft.itm,
+                                bounty: e.target.value,
+                              },
+                            }))
+                          }
+                          className={inputCls}
+                          placeholder="Inserisci Bounty"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="mt-4">
+                      <button onClick={() => saveEntryFields(entry.id)} className={btnNeutral}>
+                        Salva ITM / Bounty
+                      </button>
                     </div>
                   </div>
-
-                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                      ITM
-                      <input
-                        defaultValue={entry.itm ?? ""}
-                        onBlur={(e) => updateEntryField(entry.id, "itm", e.target.value)}
-                        className={inputCls}
-                        placeholder="Inserisci ITM"
-                      />
-                    </label>
-
-                    <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                      Bounty
-                      <input
-                        defaultValue={entry.bounty ?? ""}
-                        onBlur={(e) => updateEntryField(entry.id, "bounty", e.target.value)}
-                        className={inputCls}
-                        placeholder="Inserisci Bounty"
-                      />
-                    </label>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className={innerCls + " mt-4 p-4"}>
