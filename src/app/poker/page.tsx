@@ -41,6 +41,15 @@ type Option = {
   label: string;
 };
 
+type ClosedEntryPoint = {
+  player: "Edoardo" | "Andrea";
+  tournament: string;
+  eventAt: string;
+  singleProfit: number;
+  cumulativeProfit: number;
+  globalIndex: number;
+};
+
 function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
@@ -62,6 +71,12 @@ function monthLabel(monthStartISO: string) {
   const d = new Date(monthStartISO + "T00:00:00");
   const txt = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(d);
   return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+function amountClass(value: number, isDay: boolean) {
+  if (Math.abs(value) < 0.005) return isDay ? "text-slate-700" : "text-zinc-100";
+  if (value > 0) return isDay ? "text-emerald-700" : "text-emerald-300";
+  return isDay ? "text-red-700" : "text-red-300";
 }
 
 function SearchSelect({
@@ -154,6 +169,188 @@ function SearchSelect({
   );
 }
 
+function LineChart({
+  points,
+  isDay,
+}: {
+  points: {
+    Edoardo: ClosedEntryPoint[];
+    Andrea: ClosedEntryPoint[];
+    totalCount: number;
+  };
+  isDay: boolean;
+}) {
+  const width = 980;
+  const height = 340;
+  const padLeft = 52;
+  const padRight = 20;
+  const padTop = 20;
+  const padBottom = 42;
+
+  const allY = [
+    0,
+    ...points.Edoardo.map((p) => p.cumulativeProfit),
+    ...points.Andrea.map((p) => p.cumulativeProfit),
+  ];
+
+  const minY = Math.min(...allY);
+  const maxY = Math.max(...allY);
+  const span = Math.max(10, maxY - minY);
+  const yMin = minY - span * 0.12;
+  const yMax = maxY + span * 0.12;
+
+  const xScale = (i: number) => {
+    if (points.totalCount <= 1) return width / 2;
+    const usable = width - padLeft - padRight;
+    return padLeft + (i / (points.totalCount - 1)) * usable;
+  };
+
+  const yScale = (v: number) => {
+    const usable = height - padTop - padBottom;
+    return padTop + ((yMax - v) / (yMax - yMin || 1)) * usable;
+  };
+
+  const pathFor = (arr: ClosedEntryPoint[]) =>
+    arr
+      .map((p, idx) => `${idx === 0 ? "M" : "L"} ${xScale(p.globalIndex)} ${yScale(p.cumulativeProfit)}`)
+      .join(" ");
+
+  const zeroY = yScale(0);
+
+  const yTicks = [yMin, (yMin + yMax) / 2, yMax];
+
+  return (
+    <div className="overflow-x-auto">
+      <svg width={width} height={height} className="min-w-[980px]">
+        <line x1={padLeft} y1={zeroY} x2={width - padRight} y2={zeroY} stroke={isDay ? "#94a3b8" : "#52525b"} strokeDasharray="4 4" />
+        <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
+        <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
+
+        {yTicks.map((tick, i) => (
+          <g key={i}>
+            <line
+              x1={padLeft}
+              y1={yScale(tick)}
+              x2={width - padRight}
+              y2={yScale(tick)}
+              stroke={isDay ? "#e2e8f0" : "#27272a"}
+            />
+            <text
+              x={padLeft - 8}
+              y={yScale(tick) + 4}
+              textAnchor="end"
+              fontSize="11"
+              fill={isDay ? "#64748b" : "#a1a1aa"}
+            >
+              {euro(tick)}
+            </text>
+          </g>
+        ))}
+
+        {points.Edoardo.length > 0 && (
+          <path d={pathFor(points.Edoardo)} fill="none" stroke="#2563eb" strokeWidth="3" />
+        )}
+        {points.Andrea.length > 0 && (
+          <path d={pathFor(points.Andrea)} fill="none" stroke="#dc2626" strokeWidth="3" />
+        )}
+
+        {points.Edoardo.map((p, i) => (
+          <circle key={`e-${i}`} cx={xScale(p.globalIndex)} cy={yScale(p.cumulativeProfit)} r="4" fill="#2563eb">
+            <title>{`Edoardo · ${p.tournament} · ${formatDateTimeIT(p.eventAt)} · Torneo ${euro(p.singleProfit)} · Totale ${euro(p.cumulativeProfit)}`}</title>
+          </circle>
+        ))}
+
+        {points.Andrea.map((p, i) => (
+          <circle key={`a-${i}`} cx={xScale(p.globalIndex)} cy={yScale(p.cumulativeProfit)} r="4" fill="#dc2626">
+            <title>{`Andrea · ${p.tournament} · ${formatDateTimeIT(p.eventAt)} · Torneo ${euro(p.singleProfit)} · Totale ${euro(p.cumulativeProfit)}`}</title>
+          </circle>
+        ))}
+
+        <text x={width / 2} y={height - 10} textAnchor="middle" fontSize="12" fill={isDay ? "#64748b" : "#a1a1aa"}>
+          Tempo / sequenza tornei chiusi
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function BarChart({
+  data,
+  isDay,
+}: {
+  data: Array<{ tournament: string; Edoardo: number; Andrea: number }>;
+  isDay: boolean;
+}) {
+  const groupWidth = 108;
+  const width = Math.max(980, data.length * groupWidth + 120);
+  const height = 360;
+  const padLeft = 52;
+  const padRight = 20;
+  const padTop = 20;
+  const padBottom = 95;
+
+  const allY = [0, ...data.map((d) => d.Edoardo), ...data.map((d) => d.Andrea)];
+  const minY = Math.min(...allY);
+  const maxY = Math.max(...allY);
+  const span = Math.max(10, maxY - minY);
+  const yMin = minY - span * 0.12;
+  const yMax = maxY + span * 0.12;
+
+  const yScale = (v: number) => {
+    const usable = height - padTop - padBottom;
+    return padTop + ((yMax - v) / (yMax - yMin || 1)) * usable;
+  };
+
+  const zeroY = yScale(0);
+  const usableWidth = width - padLeft - padRight;
+  const step = data.length > 0 ? usableWidth / data.length : usableWidth;
+
+  return (
+    <div className="overflow-x-auto">
+      <svg width={width} height={height} className="min-w-[980px]">
+        <line x1={padLeft} y1={zeroY} x2={width - padRight} y2={zeroY} stroke={isDay ? "#94a3b8" : "#52525b"} strokeDasharray="4 4" />
+        <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
+        <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
+
+        {data.map((row, idx) => {
+          const baseX = padLeft + idx * step + step / 2;
+          const barW = 24;
+
+          const eTop = yScale(Math.max(row.Edoardo, 0));
+          const eBottom = yScale(Math.min(row.Edoardo, 0));
+          const aTop = yScale(Math.max(row.Andrea, 0));
+          const aBottom = yScale(Math.min(row.Andrea, 0));
+
+          const eColor = row.Edoardo >= 0 ? "#16a34a" : "#dc2626";
+          const aColor = row.Andrea >= 0 ? "#22c55e" : "#ef4444";
+
+          return (
+            <g key={row.tournament}>
+              <rect x={baseX - 28} y={Math.min(eTop, eBottom)} width={barW} height={Math.max(2, Math.abs(eBottom - eTop))} fill={eColor}>
+                <title>{`Edoardo · ${row.tournament} · ${euro(row.Edoardo)}`}</title>
+              </rect>
+              <rect x={baseX + 4} y={Math.min(aTop, aBottom)} width={barW} height={Math.max(2, Math.abs(aBottom - aTop))} fill={aColor}>
+                <title>{`Andrea · ${row.tournament} · ${euro(row.Andrea)}`}</title>
+              </rect>
+
+              <text
+                x={baseX}
+                y={height - padBottom + 16}
+                textAnchor="middle"
+                fontSize="11"
+                fill={isDay ? "#64748b" : "#a1a1aa"}
+                transform={`rotate(28 ${baseX} ${height - padBottom + 16})`}
+              >
+                {row.tournament}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 export default function PokerPage() {
   const { mode } = useUIMode();
   const isDay = mode === "day";
@@ -215,6 +412,7 @@ export default function PokerPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [activeView, setActiveView] = useState<"sessione" | "riepilogo">("sessione");
+  const [chartView, setChartView] = useState<"profitloss" | "tornei">("profitloss");
 
   const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
   const [sessions, setSessions] = useState<PokerSessionRow[]>([]);
@@ -382,17 +580,11 @@ export default function PokerPage() {
         const monthStart = dayISO.slice(0, 7) + "-01";
         const total = summaryByClosedSessionId.get(session.id)?.totalProfit ?? 0;
 
-        if (!monthMap.has(monthStart)) {
-          monthMap.set(monthStart, { monthTotal: 0, days: new Map() });
-        }
-
+        if (!monthMap.has(monthStart)) monthMap.set(monthStart, { monthTotal: 0, days: new Map() });
         const month = monthMap.get(monthStart)!;
         month.monthTotal += total;
 
-        if (!month.days.has(dayISO)) {
-          month.days.set(dayISO, { dayTotal: 0, sessions: [] });
-        }
-
+        if (!month.days.has(dayISO)) month.days.set(dayISO, { dayTotal: 0, sessions: [] });
         const day = month.days.get(dayISO)!;
         day.dayTotal += total;
         day.sessions.push(session);
@@ -456,6 +648,90 @@ export default function PokerPage() {
     return { edoardo, andrea };
   }, [accounts]);
 
+  const closedEntryTimeline = useMemo(() => {
+    const flattened: Array<{
+      player: "Edoardo" | "Andrea";
+      tournament: string;
+      eventAt: string;
+      singleProfit: number;
+    }> = [];
+
+    for (const session of closedSessions) {
+      const sessionEntries = entriesBySessionId.get(session.id) ?? [];
+      for (const entry of sessionEntries) {
+        flattened.push({
+          player: session.player_name,
+          tournament: entry.tournament_name_snapshot,
+          eventAt: session.closed_at ?? entry.created_at,
+          singleProfit: Number(entry.itm ?? 0) + Number(entry.bounty ?? 0) - Number(entry.buy_in ?? 0),
+        });
+      }
+    }
+
+    flattened.sort((a, b) => new Date(a.eventAt).getTime() - new Date(b.eventAt).getTime());
+
+    let runningE = 0;
+    let runningA = 0;
+    const edoardo: ClosedEntryPoint[] = [];
+    const andrea: ClosedEntryPoint[] = [];
+
+    flattened.forEach((row, index) => {
+      if (row.player === "Edoardo") {
+        runningE += row.singleProfit;
+        edoardo.push({
+          player: "Edoardo",
+          tournament: row.tournament,
+          eventAt: row.eventAt,
+          singleProfit: row.singleProfit,
+          cumulativeProfit: runningE,
+          globalIndex: index,
+        });
+      } else {
+        runningA += row.singleProfit;
+        andrea.push({
+          player: "Andrea",
+          tournament: row.tournament,
+          eventAt: row.eventAt,
+          singleProfit: row.singleProfit,
+          cumulativeProfit: runningA,
+          globalIndex: index,
+        });
+      }
+    });
+
+    return {
+      Edoardo: edoardo,
+      Andrea: andrea,
+      totalCount: flattened.length,
+    };
+  }, [closedSessions, entriesBySessionId]);
+
+  const tournamentPerformanceData = useMemo(() => {
+    const map = new Map<string, { Edoardo: number; Andrea: number }>();
+
+    for (const session of closedSessions) {
+      const sessionEntries = entriesBySessionId.get(session.id) ?? [];
+      for (const entry of sessionEntries) {
+        const key = entry.tournament_name_snapshot;
+        const cur = map.get(key) ?? { Edoardo: 0, Andrea: 0 };
+        const profit = Number(entry.itm ?? 0) + Number(entry.bounty ?? 0) - Number(entry.buy_in ?? 0);
+
+        if (session.player_name === "Edoardo") cur.Edoardo += profit;
+        if (session.player_name === "Andrea") cur.Andrea += profit;
+
+        map.set(key, cur);
+      }
+    }
+
+    return Array.from(map.entries())
+      .map(([tournament, value]) => ({
+        tournament,
+        Edoardo: value.Edoardo,
+        Andrea: value.Andrea,
+      }))
+      .sort((a, b) => a.tournament.localeCompare(b.tournament));
+  }, [closedSessions, entriesBySessionId]);
+
   async function createTournament() {
     setErrorMsg("");
     const cleanName = newTournamentName.trim();
@@ -476,7 +752,6 @@ export default function PokerPage() {
     if (error) return setErrorMsg(error.message);
 
     const created = data as TournamentRow;
-
     setTournaments((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     setSelectedTournamentId(created.id);
     setSessionBuyIn(String(created.buy_in));
@@ -502,7 +777,6 @@ export default function PokerPage() {
 
   async function saveEntryFields(entryId: string) {
     setErrorMsg("");
-
     const draft = draftValues[entryId] ?? { itm: "", bounty: "" };
     const itm = toNumberInput(draft.itm);
     const bounty = toNumberInput(draft.bounty);
@@ -675,7 +949,10 @@ export default function PokerPage() {
                   <div><span className="font-semibold">Buy-in totale:</span> {euro(totalBuyIn)}</div>
                   <div><span className="font-semibold">ITM totale:</span> {euro(totalItm)}</div>
                   <div><span className="font-semibold">Bounty totale:</span> {euro(totalBounty)}</div>
-                  <div className="col-span-2"><span className="font-semibold">Profitto sessione:</span> {euro(totalProfit)}</div>
+                  <div className="col-span-2">
+                    <span className="font-semibold">Profitto sessione:</span>{" "}
+                    <span className={amountClass(totalProfit, isDay)}>{euro(totalProfit)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -695,6 +972,7 @@ export default function PokerPage() {
 
   function renderClosedPlayerSection(playerName: "Edoardo" | "Andrea") {
     const months = groupedClosedByPlayer[playerName];
+    const playerProfit = playerName === "Edoardo" ? overallProfits.edoardo : overallProfits.andrea;
 
     return (
       <div className="overflow-hidden rounded-2xl border border-red-200">
@@ -705,7 +983,7 @@ export default function PokerPage() {
               <div className="mt-1 text-sm text-red-100">Sessioni chiuse raggruppate per mese e giorno.</div>
             </div>
             <div className={headerCounterCls}>
-              {playerName === "Edoardo" ? euro(overallProfits.edoardo) : euro(overallProfits.andrea)}
+              <span className={amountClass(playerProfit, isDay)}>{euro(playerProfit)}</span>
             </div>
           </div>
         </div>
@@ -723,7 +1001,7 @@ export default function PokerPage() {
                     <div className={isDay ? "text-sm font-semibold text-slate-900" : "text-sm font-semibold text-zinc-100"}>
                       {monthLabel(month.monthStart)}
                     </div>
-                    <div className="text-sm font-semibold">
+                    <div className={`text-sm font-semibold ${amountClass(month.monthTotal, isDay)}`}>
                       Totale mese: {euro(month.monthTotal)}
                     </div>
                   </summary>
@@ -732,10 +1010,8 @@ export default function PokerPage() {
                     {month.days.map((day) => (
                       <details key={day.dayISO} className={innerCls}>
                         <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
-                          <div className={isDay ? "text-sm text-slate-900" : "text-sm text-zinc-100"}>
-                            {day.dayISO}
-                          </div>
-                          <div className="text-sm font-semibold">
+                          <div className={isDay ? "text-sm text-slate-900" : "text-sm text-zinc-100"}>{day.dayISO}</div>
+                          <div className={`text-sm font-semibold ${amountClass(day.dayTotal, isDay)}`}>
                             Totale giorno: {euro(day.dayTotal)}
                           </div>
                         </summary>
@@ -772,7 +1048,10 @@ export default function PokerPage() {
                                   <div><span className="font-semibold">Totale buy-in:</span> {euro(summary.totalBuyIn)}</div>
                                   <div><span className="font-semibold">Totale ITM:</span> {euro(summary.totalItm)}</div>
                                   <div><span className="font-semibold">Totale bounty:</span> {euro(summary.totalBounty)}</div>
-                                  <div className="col-span-2"><span className="font-semibold">Profitto finale:</span> {euro(summary.totalProfit)}</div>
+                                  <div className="col-span-2">
+                                    <span className="font-semibold">Profitto finale:</span>{" "}
+                                    <span className={amountClass(summary.totalProfit, isDay)}>{euro(summary.totalProfit)}</span>
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -940,24 +1219,86 @@ export default function PokerPage() {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div className={innerCls + " p-4"}>
                     <div className="text-sm font-semibold">Profitto Edoardo</div>
-                    <div className="mt-2 text-lg font-semibold">{euro(overallProfits.edoardo)}</div>
+                    <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.edoardo, isDay)}`}>
+                      {euro(overallProfits.edoardo)}
+                    </div>
                   </div>
                   <div className={innerCls + " p-4"}>
                     <div className="text-sm font-semibold">Profitto Andrea</div>
-                    <div className="mt-2 text-lg font-semibold">{euro(overallProfits.andrea)}</div>
+                    <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.andrea, isDay)}`}>
+                      {euro(overallProfits.andrea)}
+                    </div>
                   </div>
                   <div className={innerCls + " p-4"}>
                     <div className="text-sm font-semibold">Profitto Totale</div>
-                    <div className="mt-2 text-lg font-semibold">{euro(overallProfits.total)}</div>
+                    <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.total, isDay)}`}>
+                      {euro(overallProfits.total)}
+                    </div>
                   </div>
                 </div>
               </div>
             </section>
 
-            <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {renderClosedPlayerSection("Edoardo")}
               {renderClosedPlayerSection("Andrea")}
             </div>
+
+            <section className="overflow-hidden rounded-2xl border border-red-200">
+              <div className={sectionHeaderCls}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-semibold tracking-wide text-white">Grafici</h2>
+                    <div className="mt-1 text-sm text-red-100">Analisi andamento profit/loss e performance per torneo.</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setChartView("profitloss")}
+                      className={chartView === "profitloss" ? activeTabCls : inactiveTabCls}
+                    >
+                      Profit/Loss
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChartView("tornei")}
+                      className={chartView === "tornei" ? activeTabCls : inactiveTabCls}
+                    >
+                      Tornei
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className={panelCls + " p-6"}>
+                <div className="mb-4 flex items-center gap-6 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-full bg-blue-600" />
+                    <span>Edoardo</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-full bg-red-600" />
+                    <span>Andrea</span>
+                  </div>
+                </div>
+
+                {chartView === "profitloss" ? (
+                  closedEntryTimeline.totalCount === 0 ? (
+                    <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+                      Nessun dato disponibile per il grafico Profit/Loss.
+                    </div>
+                  ) : (
+                    <LineChart points={closedEntryTimeline} isDay={isDay} />
+                  )
+                ) : tournamentPerformanceData.length === 0 ? (
+                  <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+                    Nessun dato disponibile per il grafico Tornei.
+                  </div>
+                ) : (
+                  <BarChart data={tournamentPerformanceData} isDay={isDay} />
+                )}
+              </div>
+            </section>
           </div>
         )}
       </div>
