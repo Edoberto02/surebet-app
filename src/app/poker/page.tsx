@@ -105,6 +105,12 @@ export default function PokerPage() {
     ? "rounded-xl border border-[#D8D1C3] bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-[#F4F0E6]"
     : "rounded-xl bg-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700";
 
+  const headerCounterCls = isDay
+    ? "rounded-xl border border-red-200 bg-[#F7F5EE] px-3 py-2 text-sm font-semibold text-slate-900"
+    : "rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-semibold text-zinc-100";
+
+  const sectionHeaderCls = "bg-gradient-to-r from-red-800 to-red-600 px-6 py-4";
+
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [activeView, setActiveView] = useState<"sessione" | "riepilogo">("sessione");
@@ -452,146 +458,149 @@ export default function PokerPage() {
     const totalProfit = totalItm + totalBounty - totalBuyIn;
 
     return (
-      <div className={panelCls + " p-6"}>
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-xl font-semibold">{playerName}</h3>
-          {session ? (
-            <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-              Aperta il {formatDateTimeIT(session.created_at)}
+      <div className="overflow-hidden rounded-2xl border border-red-200">
+        <div className={sectionHeaderCls}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xl font-semibold tracking-wide text-white">{playerName}</h3>
+              <div className="mt-1 text-sm text-red-100">
+                {session ? `Sessione aperta il ${formatDateTimeIT(session.created_at)}` : "Nessuna sessione aperta"}
+              </div>
             </div>
-          ) : (
-            <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-              Nessuna sessione aperta
+            <div className={headerCounterCls}>
+              {sessionEntries.length} tornei
             </div>
-          )}
+          </div>
         </div>
 
-        {!session ? (
-          <div className={isDay ? "mt-4 text-sm text-slate-600" : "mt-4 text-sm text-zinc-400"}>
-            Nessuna sessione corrente per {playerName}.
-          </div>
-        ) : sessionEntries.length === 0 ? (
-          <div className={isDay ? "mt-4 text-sm text-slate-600" : "mt-4 text-sm text-zinc-400"}>
-            Sessione aperta ma senza tornei.
-          </div>
-        ) : (
-          <>
-            <div className="mt-4 space-y-3">
-              {sessionEntries.map((entry) => {
-                const currentDraft = draftValues[entry.id] ?? {
-                  itm: entry.itm !== null ? String(entry.itm) : "",
-                  bounty: entry.bounty !== null ? String(entry.bounty) : "",
-                };
+        <div className={panelCls + " p-6"}>
+          {!session ? (
+            <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+              Nessuna sessione corrente per {playerName}.
+            </div>
+          ) : sessionEntries.length === 0 ? (
+            <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+              Sessione aperta ma senza tornei.
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {sessionEntries.map((entry) => {
+                  const currentDraft = draftValues[entry.id] ?? {
+                    itm: entry.itm !== null ? String(entry.itm) : "",
+                    bounty: entry.bounty !== null ? String(entry.bounty) : "",
+                  };
 
-                const isSaved =
-                  currentDraft.itm === (entry.itm !== null ? String(entry.itm) : "") &&
-                  currentDraft.bounty === (entry.bounty !== null ? String(entry.bounty) : "");
+                  const isSaved =
+                    currentDraft.itm === (entry.itm !== null ? String(entry.itm) : "") &&
+                    currentDraft.bounty === (entry.bounty !== null ? String(entry.bounty) : "");
 
-                return (
-                  <div key={entry.id} className={innerCls + " p-4"}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold">{entry.tournament_name_snapshot}</div>
-                        <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                          Buy-in: {euro(Number(entry.buy_in ?? 0))}
+                  return (
+                    <div key={entry.id} className={innerCls + " p-4"}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold">{entry.tournament_name_snapshot}</div>
+                          <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                            Buy-in: {euro(Number(entry.buy_in ?? 0))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                            {formatDateTimeIT(entry.created_at)}
+                          </div>
+
+                          <button onClick={() => deleteEntry(entry.id)} className={btnDanger}>
+                            Elimina
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                          {formatDateTimeIT(entry.created_at)}
-                        </div>
+                      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+                          ITM
+                          <input
+                            value={currentDraft.itm}
+                            onChange={(e) =>
+                              setDraftValues((prev) => ({
+                                ...prev,
+                                [entry.id]: {
+                                  itm: e.target.value,
+                                  bounty: prev[entry.id]?.bounty ?? currentDraft.bounty,
+                                },
+                              }))
+                            }
+                            className={inputCls}
+                            placeholder="Inserisci ITM"
+                          />
+                        </label>
 
-                        <button onClick={() => deleteEntry(entry.id)} className={btnDanger}>
-                          Elimina
+                        <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+                          Bounty
+                          <input
+                            value={currentDraft.bounty}
+                            onChange={(e) =>
+                              setDraftValues((prev) => ({
+                                ...prev,
+                                [entry.id]: {
+                                  itm: prev[entry.id]?.itm ?? currentDraft.itm,
+                                  bounty: e.target.value,
+                                },
+                              }))
+                            }
+                            className={inputCls}
+                            placeholder="Inserisci Bounty"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-4 flex items-center gap-3">
+                        <button
+                          onClick={() => saveEntryFields(entry.id)}
+                          className={isSaved ? btnSaved : btnUnsaved}
+                        >
+                          {isSaved ? "Salvato" : "Salva ITM / Bounty"}
                         </button>
+
+                        <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                          {isSaved ? "Valori già salvati" : "Ci sono modifiche da salvare"}
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
 
-                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                        ITM
-                        <input
-                          value={currentDraft.itm}
-                          onChange={(e) =>
-                            setDraftValues((prev) => ({
-                              ...prev,
-                              [entry.id]: {
-                                itm: e.target.value,
-                                bounty: prev[entry.id]?.bounty ?? currentDraft.bounty,
-                              },
-                            }))
-                          }
-                          className={inputCls}
-                          placeholder="Inserisci ITM"
-                        />
-                      </label>
-
-                      <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                        Bounty
-                        <input
-                          value={currentDraft.bounty}
-                          onChange={(e) =>
-                            setDraftValues((prev) => ({
-                              ...prev,
-                              [entry.id]: {
-                                itm: prev[entry.id]?.itm ?? currentDraft.itm,
-                                bounty: e.target.value,
-                              },
-                            }))
-                          }
-                          className={inputCls}
-                          placeholder="Inserisci Bounty"
-                        />
-                      </label>
-                    </div>
-
-                    <div className="mt-4 flex items-center gap-3">
-                      <button
-                        onClick={() => saveEntryFields(entry.id)}
-                        className={isSaved ? btnSaved : btnUnsaved}
-                      >
-                        {isSaved ? "Salvato" : "Salva ITM / Bounty"}
-                      </button>
-
-                      <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                        {isSaved ? "Valori già salvati" : "Ci sono modifiche da salvare"}
-                      </div>
-                    </div>
+              <div className={innerCls + " mt-4 p-4"}>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="font-semibold">Tornei:</span> {sessionEntries.length}
                   </div>
-                );
-              })}
-            </div>
-
-            <div className={innerCls + " mt-4 p-4"}>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="font-semibold">Tornei:</span> {sessionEntries.length}
-                </div>
-                <div>
-                  <span className="font-semibold">Buy-in totale:</span> {euro(totalBuyIn)}
-                </div>
-                <div>
-                  <span className="font-semibold">ITM totale:</span> {euro(totalItm)}
-                </div>
-                <div>
-                  <span className="font-semibold">Bounty totale:</span> {euro(totalBounty)}
-                </div>
-                <div className="col-span-2">
-                  <span className="font-semibold">Profitto sessione:</span> {euro(totalProfit)}
+                  <div>
+                    <span className="font-semibold">Buy-in totale:</span> {euro(totalBuyIn)}
+                  </div>
+                  <div>
+                    <span className="font-semibold">ITM totale:</span> {euro(totalItm)}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Bounty totale:</span> {euro(totalBounty)}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="font-semibold">Profitto sessione:</span> {euro(totalProfit)}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {canClose && (
-              <div className="mt-4">
-                <button onClick={() => closeSession(session.id)} className={btnSuccess}>
-                  Termina sessione
-                </button>
-              </div>
-            )}
-          </>
-        )}
+              {canClose && (
+                <div className="mt-4">
+                  <button onClick={() => closeSession(session.id)} className={btnSuccess}>
+                    Termina sessione
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     );
   }
@@ -631,182 +640,210 @@ export default function PokerPage() {
         ) : activeView === "sessione" ? (
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
             <section className="space-y-6">
-              <div className={panelCls + " p-6"}>
-                <h2 className="text-xl font-semibold">Sessione Corrente</h2>
-                <div className={isDay ? "mt-2 text-sm text-slate-600" : "mt-2 text-sm text-zinc-400"}>
-                  Le sessioni aperte di Edoardo e Andrea vengono mostrate affiancate.
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className={innerCls + " p-4"}>
-                    <div className="text-sm font-semibold">Saldo PokerStars Edoardo</div>
-                    <div className="mt-2 text-lg font-semibold">{euro(pokerstarsBalances.edoardo)}</div>
-                  </div>
-
-                  <div className={innerCls + " p-4"}>
-                    <div className="text-sm font-semibold">Saldo PokerStars Andrea</div>
-                    <div className="mt-2 text-lg font-semibold">{euro(pokerstarsBalances.andrea)}</div>
+              <div className="overflow-hidden rounded-2xl border border-red-200">
+                <div className={sectionHeaderCls}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl font-semibold tracking-wide text-white">Sessione Corrente</h2>
+                      <div className="mt-1 text-sm text-red-100">
+                        Le sessioni aperte di Edoardo e Andrea vengono mostrate affiancate.
+                      </div>
+                    </div>
+                    <div className={headerCounterCls}>
+                      Aperte: {(openSessionsByPlayer.get("Edoardo") ? 1 : 0) + (openSessionsByPlayer.get("Andrea") ? 1 : 0)}
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-6 grid grid-cols-1 gap-6 2xl:grid-cols-2">
-                  <SessionColumn playerName="Edoardo" />
-                  <SessionColumn playerName="Andrea" />
+                <div className={panelCls + " p-6"}>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className={innerCls + " p-4"}>
+                      <div className="text-sm font-semibold">Saldo PokerStars Edoardo</div>
+                      <div className="mt-2 text-lg font-semibold">{euro(pokerstarsBalances.edoardo)}</div>
+                    </div>
+
+                    <div className={innerCls + " p-4"}>
+                      <div className="text-sm font-semibold">Saldo PokerStars Andrea</div>
+                      <div className="mt-2 text-lg font-semibold">{euro(pokerstarsBalances.andrea)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-1 gap-6 2xl:grid-cols-2">
+                    <SessionColumn playerName="Edoardo" />
+                    <SessionColumn playerName="Andrea" />
+                  </div>
                 </div>
               </div>
             </section>
 
-            <section className={panelCls + " p-6"}>
-              <h2 className="text-xl font-semibold">Nuova Sessione</h2>
+            <section className="overflow-hidden rounded-2xl border border-red-200">
+              <div className={sectionHeaderCls}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-semibold tracking-wide text-white">Nuova Sessione</h2>
+                    <div className="mt-1 text-sm text-red-100">Aggiungi nuovi tornei alla sessione aperta del giocatore.</div>
+                  </div>
+                  <div className={headerCounterCls}>{tournaments.length} tornei</div>
+                </div>
+              </div>
 
-              <div className="mt-6 grid gap-4">
-                <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                  Giocatore
-                  <select
-                    value={selectedPlayer}
-                    onChange={(e) => setSelectedPlayer(e.target.value as "Edoardo" | "Andrea")}
-                    className={inputCls}
-                    style={isDay ? undefined : { colorScheme: "dark" }}
-                  >
-                    <option value="Edoardo">Edoardo</option>
-                    <option value="Andrea">Andrea</option>
-                  </select>
-                </label>
-
-                <div className={innerCls + " p-4"}>
-                  <h3 className="text-sm font-semibold">Torneo selezionabile</h3>
-
-                  <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
-                    Torneo
+              <div className={panelCls + " p-6"}>
+                <div className="grid gap-4">
+                  <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+                    Giocatore
                     <select
-                      value={selectedTournamentId}
-                      onChange={(e) => setSelectedTournamentId(e.target.value)}
+                      value={selectedPlayer}
+                      onChange={(e) => setSelectedPlayer(e.target.value as "Edoardo" | "Andrea")}
                       className={inputCls}
                       style={isDay ? undefined : { colorScheme: "dark" }}
                     >
-                      <option value="">Seleziona un torneo…</option>
-                      {tournamentOptions.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
-                        </option>
-                      ))}
+                      <option value="Edoardo">Edoardo</option>
+                      <option value="Andrea">Andrea</option>
                     </select>
                   </label>
 
-                  <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
-                    Buy-in
-                    <input
-                      value={sessionBuyIn}
-                      readOnly
-                      className={inputCls}
-                      placeholder="Si compila automaticamente"
-                    />
-                  </label>
+                  <div className={innerCls + " p-4"}>
+                    <h3 className="text-sm font-semibold">Torneo selezionabile</h3>
 
-                  <div className="mt-4">
-                    <button onClick={addTournamentToSession} className={btnPrimary}>
-                      Aggiungi torneo alla sessione
+                    <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
+                      Torneo
+                      <select
+                        value={selectedTournamentId}
+                        onChange={(e) => setSelectedTournamentId(e.target.value)}
+                        className={inputCls}
+                        style={isDay ? undefined : { colorScheme: "dark" }}
+                      >
+                        <option value="">Seleziona un torneo…</option>
+                        {tournamentOptions.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
+                      Buy-in
+                      <input
+                        value={sessionBuyIn}
+                        readOnly
+                        className={inputCls}
+                        placeholder="Si compila automaticamente"
+                      />
+                    </label>
+
+                    <div className="mt-4">
+                      <button onClick={addTournamentToSession} className={btnPrimary}>
+                        Aggiungi torneo alla sessione
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={innerCls + " p-4"}>
+                    <h3 className="text-sm font-semibold">Aggiungi nuovo torneo</h3>
+
+                    <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
+                      Nome torneo
+                      <input
+                        value={newTournamentName}
+                        onChange={(e) => setNewTournamentName(e.target.value)}
+                        className={inputCls}
+                        placeholder="Es. Sunday Special"
+                      />
+                    </label>
+
+                    <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
+                      Buy-in torneo
+                      <input
+                        value={newTournamentBuyIn}
+                        onChange={(e) => setNewTournamentBuyIn(e.target.value)}
+                        className={inputCls}
+                        placeholder="Es. 100"
+                      />
+                    </label>
+
+                    <div className="mt-4">
+                      <button onClick={createTournament} className={btnPrimary}>
+                        Salva torneo
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button onClick={() => loadAll(false)} className={btnNeutral}>
+                      Aggiorna
                     </button>
                   </div>
-                </div>
-
-                <div className={innerCls + " p-4"}>
-                  <h3 className="text-sm font-semibold">Aggiungi nuovo torneo</h3>
-
-                  <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
-                    Nome torneo
-                    <input
-                      value={newTournamentName}
-                      onChange={(e) => setNewTournamentName(e.target.value)}
-                      className={inputCls}
-                      placeholder="Es. Sunday Special"
-                    />
-                  </label>
-
-                  <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
-                    Buy-in torneo
-                    <input
-                      value={newTournamentBuyIn}
-                      onChange={(e) => setNewTournamentBuyIn(e.target.value)}
-                      className={inputCls}
-                      placeholder="Es. 100"
-                    />
-                  </label>
-
-                  <div className="mt-4">
-                    <button onClick={createTournament} className={btnPrimary}>
-                      Salva torneo
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <button onClick={() => loadAll(false)} className={btnNeutral}>
-                    Aggiorna
-                  </button>
                 </div>
               </div>
             </section>
           </div>
         ) : (
-          <section className={panelCls + " p-6"}>
-            <h2 className="text-xl font-semibold">Riepilogo</h2>
-            <div className={isDay ? "mt-2 text-sm text-slate-600" : "mt-2 text-sm text-zinc-400"}>
-              Qui trovi le sessioni chiuse con i totali principali.
+          <section className="overflow-hidden rounded-2xl border border-red-200">
+            <div className={sectionHeaderCls}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold tracking-wide text-white">Riepilogo</h2>
+                  <div className="mt-1 text-sm text-red-100">Qui trovi le sessioni chiuse con i totali principali.</div>
+                </div>
+                <div className={headerCounterCls}>{closedSessions.length} sessioni</div>
+              </div>
             </div>
 
-            {closedSessions.length === 0 ? (
-              <div className={isDay ? "mt-6 text-sm text-slate-600" : "mt-6 text-sm text-zinc-400"}>
-                Nessuna sessione chiusa.
-              </div>
-            ) : (
-              <div className="mt-6 space-y-3">
-                {closedSessions.map((session) => {
-                  const summary = summaryByClosedSessionId.get(session.id) ?? {
-                    count: 0,
-                    totalBuyIn: 0,
-                    totalItm: 0,
-                    totalBounty: 0,
-                    totalProfit: 0,
-                  };
+            <div className={panelCls + " p-6"}>
+              {closedSessions.length === 0 ? (
+                <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+                  Nessuna sessione chiusa.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {closedSessions.map((session) => {
+                    const summary = summaryByClosedSessionId.get(session.id) ?? {
+                      count: 0,
+                      totalBuyIn: 0,
+                      totalItm: 0,
+                      totalBounty: 0,
+                      totalProfit: 0,
+                    };
 
-                  return (
-                    <div key={session.id} className={innerCls + " p-4"}>
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="text-sm font-semibold">{session.player_name}</div>
-                          <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                            Apertura: {formatDateTimeIT(session.created_at)}
+                    return (
+                      <div key={session.id} className={innerCls + " p-4"}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="text-sm font-semibold">{session.player_name}</div>
+                            <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                              Apertura: {formatDateTimeIT(session.created_at)}
+                            </div>
+                            <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                              Chiusura: {session.closed_at ? formatDateTimeIT(session.closed_at) : "—"}
+                            </div>
                           </div>
-                          <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                            Chiusura: {session.closed_at ? formatDateTimeIT(session.closed_at) : "—"}
+
+                          <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                            Tornei: {summary.count}
                           </div>
                         </div>
 
-                        <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                          Tornei: {summary.count}
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="font-semibold">Totale buy-in:</span> {euro(summary.totalBuyIn)}
+                          </div>
+                          <div>
+                            <span className="font-semibold">Totale ITM:</span> {euro(summary.totalItm)}
+                          </div>
+                          <div>
+                            <span className="font-semibold">Totale bounty:</span> {euro(summary.totalBounty)}
+                          </div>
+                          <div>
+                            <span className="font-semibold">Profitto finale:</span> {euro(summary.totalProfit)}
+                          </div>
                         </div>
                       </div>
-
-                      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="font-semibold">Totale buy-in:</span> {euro(summary.totalBuyIn)}
-                        </div>
-                        <div>
-                          <span className="font-semibold">Totale ITM:</span> {euro(summary.totalItm)}
-                        </div>
-                        <div>
-                          <span className="font-semibold">Totale bounty:</span> {euro(summary.totalBounty)}
-                        </div>
-                        <div>
-                          <span className="font-semibold">Profitto finale:</span> {euro(summary.totalProfit)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </section>
         )}
       </div>
