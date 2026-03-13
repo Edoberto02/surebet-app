@@ -36,6 +36,11 @@ type AccountRow = {
   balance: number;
 };
 
+type Option = {
+  id: string;
+  label: string;
+};
+
 function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
@@ -51,6 +56,96 @@ function formatDateTimeIT(value: string) {
 
 function normalizeName(value: string) {
   return value.trim().toLowerCase();
+}
+
+function SearchSelect({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+  isDay,
+}: {
+  label: string;
+  value: string;
+  options: Option[];
+  placeholder?: string;
+  onChange: (id: string) => void;
+  isDay: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  const selectedLabel = useMemo(
+    () => options.find((o) => o.id === value)?.label ?? "",
+    [options, value]
+  );
+
+  const filtered = useMemo(() => {
+    const qq = q.trim().toLowerCase();
+    if (!qq) return options;
+    return options.filter((o) => o.label.toLowerCase().includes(qq));
+  }, [options, q]);
+
+  return (
+    <div className="relative">
+      <div className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>{label}</div>
+
+      <input
+        value={open ? q : selectedLabel}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => {
+          setQ("");
+          setOpen(true);
+        }}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        placeholder={placeholder ?? "Scrivi per cercare..."}
+        className={[
+          "mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none",
+          isDay
+            ? "border-[#D8D1C3] bg-white text-slate-900 placeholder:text-slate-400"
+            : "border-zinc-700 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500",
+        ].join(" ")}
+      />
+
+      {open && (
+        <div
+          className={[
+            "absolute z-20 mt-2 max-h-56 w-full overflow-auto rounded-xl border shadow",
+            isDay ? "border-[#D8D1C3] bg-white" : "border-zinc-700 bg-zinc-950",
+          ].join(" ")}
+        >
+          {filtered.length === 0 ? (
+            <div className={isDay ? "px-3 py-2 text-sm text-slate-500" : "px-3 py-2 text-sm text-zinc-400"}>
+              Nessun risultato
+            </div>
+          ) : (
+            filtered.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(o.id);
+                  setOpen(false);
+                  setQ("");
+                }}
+                className={[
+                  "block w-full px-3 py-2 text-left text-sm",
+                  isDay ? "text-slate-900 hover:bg-red-50" : "text-zinc-100 hover:bg-zinc-800",
+                ].join(" ")}
+              >
+                {o.label}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PokerPage() {
@@ -203,7 +298,7 @@ export default function PokerPage() {
     setSessionBuyIn(found ? String(found.buy_in) : "");
   }, [selectedTournamentId, tournaments]);
 
-  const tournamentOptions = useMemo(() => {
+  const tournamentOptions: Option[] = useMemo(() => {
     return tournaments.map((t) => ({
       id: t.id,
       label: `${t.name} — ${euro(Number(t.buy_in ?? 0))}`,
@@ -442,168 +537,168 @@ export default function PokerPage() {
   }
 
   function renderSessionColumn(playerName: "Edoardo" | "Andrea") {
-  const session = openSessionsByPlayer.get(playerName);
-  const sessionEntries = session ? entriesBySessionId.get(session.id) ?? [] : [];
+    const session = openSessionsByPlayer.get(playerName);
+    const sessionEntries = session ? entriesBySessionId.get(session.id) ?? [] : [];
 
-  const canClose =
-    !!session &&
-    sessionEntries.length > 0 &&
-    sessionEntries.every(
-      (entry) => entry.itm !== null && entry.bounty !== null
-    );
+    const canClose =
+      !!session &&
+      sessionEntries.length > 0 &&
+      sessionEntries.every(
+        (entry) => entry.itm !== null && entry.bounty !== null
+      );
 
-  const totalBuyIn = sessionEntries.reduce((sum, x) => sum + Number(x.buy_in ?? 0), 0);
-  const totalItm = sessionEntries.reduce((sum, x) => sum + Number(x.itm ?? 0), 0);
-  const totalBounty = sessionEntries.reduce((sum, x) => sum + Number(x.bounty ?? 0), 0);
-  const totalProfit = totalItm + totalBounty - totalBuyIn;
+    const totalBuyIn = sessionEntries.reduce((sum, x) => sum + Number(x.buy_in ?? 0), 0);
+    const totalItm = sessionEntries.reduce((sum, x) => sum + Number(x.itm ?? 0), 0);
+    const totalBounty = sessionEntries.reduce((sum, x) => sum + Number(x.bounty ?? 0), 0);
+    const totalProfit = totalItm + totalBounty - totalBuyIn;
 
-  return (
-    <div className="overflow-hidden rounded-2xl border border-red-200">
-      <div className={sectionHeaderCls}>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-semibold tracking-wide text-white">{playerName}</h3>
-            <div className="mt-1 text-sm text-red-100">
-              {session ? `Sessione aperta il ${formatDateTimeIT(session.created_at)}` : "Nessuna sessione aperta"}
+    return (
+      <div className="overflow-hidden rounded-2xl border border-red-200">
+        <div className={sectionHeaderCls}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xl font-semibold tracking-wide text-white">{playerName}</h3>
+              <div className="mt-1 text-sm text-red-100">
+                {session ? `Sessione aperta il ${formatDateTimeIT(session.created_at)}` : "Nessuna sessione aperta"}
+              </div>
             </div>
-          </div>
-          <div className={headerCounterCls}>
-            {sessionEntries.length} tornei
+            <div className={headerCounterCls}>
+              {sessionEntries.length} tornei
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className={panelCls + " p-6"}>
-        {!session ? (
-          <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
-            Nessuna sessione corrente per {playerName}.
-          </div>
-        ) : sessionEntries.length === 0 ? (
-          <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
-            Sessione aperta ma senza tornei.
-          </div>
-        ) : (
-          <>
-            <div className="space-y-3">
-              {sessionEntries.map((entry) => {
-                const currentDraft = draftValues[entry.id] ?? {
-                  itm: entry.itm !== null ? String(entry.itm) : "",
-                  bounty: entry.bounty !== null ? String(entry.bounty) : "",
-                };
+        <div className={panelCls + " p-6"}>
+          {!session ? (
+            <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+              Nessuna sessione corrente per {playerName}.
+            </div>
+          ) : sessionEntries.length === 0 ? (
+            <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+              Sessione aperta ma senza tornei.
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {sessionEntries.map((entry) => {
+                  const currentDraft = draftValues[entry.id] ?? {
+                    itm: entry.itm !== null ? String(entry.itm) : "",
+                    bounty: entry.bounty !== null ? String(entry.bounty) : "",
+                  };
 
-                const isSaved =
-                  currentDraft.itm === (entry.itm !== null ? String(entry.itm) : "") &&
-                  currentDraft.bounty === (entry.bounty !== null ? String(entry.bounty) : "");
+                  const isSaved =
+                    currentDraft.itm === (entry.itm !== null ? String(entry.itm) : "") &&
+                    currentDraft.bounty === (entry.bounty !== null ? String(entry.bounty) : "");
 
-                return (
-                  <div key={entry.id} className={innerCls + " p-4"}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold">{entry.tournament_name_snapshot}</div>
-                        <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                          Buy-in: {euro(Number(entry.buy_in ?? 0))}
+                  return (
+                    <div key={entry.id} className={innerCls + " p-4"}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold">{entry.tournament_name_snapshot}</div>
+                          <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                            Buy-in: {euro(Number(entry.buy_in ?? 0))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                            {formatDateTimeIT(entry.created_at)}
+                          </div>
+
+                          <button onClick={() => deleteEntry(entry.id)} className={btnDanger}>
+                            Elimina
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                          {formatDateTimeIT(entry.created_at)}
-                        </div>
+                      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+                          ITM
+                          <input
+                            value={currentDraft.itm}
+                            onChange={(e) =>
+                              setDraftValues((prev) => ({
+                                ...prev,
+                                [entry.id]: {
+                                  itm: e.target.value,
+                                  bounty: prev[entry.id]?.bounty ?? currentDraft.bounty,
+                                },
+                              }))
+                            }
+                            className={inputCls}
+                            placeholder="Inserisci ITM"
+                          />
+                        </label>
 
-                        <button onClick={() => deleteEntry(entry.id)} className={btnDanger}>
-                          Elimina
+                        <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
+                          Bounty
+                          <input
+                            value={currentDraft.bounty}
+                            onChange={(e) =>
+                              setDraftValues((prev) => ({
+                                ...prev,
+                                [entry.id]: {
+                                  itm: prev[entry.id]?.itm ?? currentDraft.itm,
+                                  bounty: e.target.value,
+                                },
+                              }))
+                            }
+                            className={inputCls}
+                            placeholder="Inserisci Bounty"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-4 flex items-center gap-3">
+                        <button
+                          onClick={() => saveEntryFields(entry.id)}
+                          className={isSaved ? btnSaved : btnUnsaved}
+                        >
+                          {isSaved ? "Salvato" : "Salva ITM / Bounty"}
                         </button>
+
+                        <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                          {isSaved ? "Valori già salvati" : "Ci sono modifiche da salvare"}
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
 
-                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                        ITM
-                        <input
-                          value={currentDraft.itm}
-                          onChange={(e) =>
-                            setDraftValues((prev) => ({
-                              ...prev,
-                              [entry.id]: {
-                                itm: e.target.value,
-                                bounty: prev[entry.id]?.bounty ?? currentDraft.bounty,
-                              },
-                            }))
-                          }
-                          className={inputCls}
-                          placeholder="Inserisci ITM"
-                        />
-                      </label>
-
-                      <label className={isDay ? "text-sm text-slate-700" : "text-sm text-zinc-300"}>
-                        Bounty
-                        <input
-                          value={currentDraft.bounty}
-                          onChange={(e) =>
-                            setDraftValues((prev) => ({
-                              ...prev,
-                              [entry.id]: {
-                                itm: prev[entry.id]?.itm ?? currentDraft.itm,
-                                bounty: e.target.value,
-                              },
-                            }))
-                          }
-                          className={inputCls}
-                          placeholder="Inserisci Bounty"
-                        />
-                      </label>
-                    </div>
-
-                    <div className="mt-4 flex items-center gap-3">
-                      <button
-                        onClick={() => saveEntryFields(entry.id)}
-                        className={isSaved ? btnSaved : btnUnsaved}
-                      >
-                        {isSaved ? "Salvato" : "Salva ITM / Bounty"}
-                      </button>
-
-                      <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                        {isSaved ? "Valori già salvati" : "Ci sono modifiche da salvare"}
-                      </div>
-                    </div>
+              <div className={innerCls + " mt-4 p-4"}>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="font-semibold">Tornei:</span> {sessionEntries.length}
                   </div>
-                );
-              })}
-            </div>
-
-            <div className={innerCls + " mt-4 p-4"}>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="font-semibold">Tornei:</span> {sessionEntries.length}
-                </div>
-                <div>
-                  <span className="font-semibold">Buy-in totale:</span> {euro(totalBuyIn)}
-                </div>
-                <div>
-                  <span className="font-semibold">ITM totale:</span> {euro(totalItm)}
-                </div>
-                <div>
-                  <span className="font-semibold">Bounty totale:</span> {euro(totalBounty)}
-                </div>
-                <div className="col-span-2">
-                  <span className="font-semibold">Profitto sessione:</span> {euro(totalProfit)}
+                  <div>
+                    <span className="font-semibold">Buy-in totale:</span> {euro(totalBuyIn)}
+                  </div>
+                  <div>
+                    <span className="font-semibold">ITM totale:</span> {euro(totalItm)}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Bounty totale:</span> {euro(totalBounty)}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="font-semibold">Profitto sessione:</span> {euro(totalProfit)}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {canClose && (
-              <div className="mt-4">
-                <button onClick={() => closeSession(session.id)} className={btnSuccess}>
-                  Termina sessione
-                </button>
-              </div>
-            )}
-          </>
-        )}
+              {canClose && (
+                <div className="mt-4">
+                  <button onClick={() => closeSession(session.id)} className={btnSuccess}>
+                    Termina sessione
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <main className={pageCls}>
@@ -670,7 +765,7 @@ export default function PokerPage() {
 
                   <div className="mt-6 grid grid-cols-1 gap-6 2xl:grid-cols-2">
                     {renderSessionColumn("Edoardo")}
-{renderSessionColumn("Andrea")}
+                    {renderSessionColumn("Andrea")}
                   </div>
                 </div>
               </div>
@@ -703,24 +798,14 @@ export default function PokerPage() {
                   </label>
 
                   <div className={innerCls + " p-4"}>
-                    <h3 className="text-sm font-semibold">Torneo selezionabile</h3>
-
-                    <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
-                      Torneo
-                      <select
-                        value={selectedTournamentId}
-                        onChange={(e) => setSelectedTournamentId(e.target.value)}
-                        className={inputCls}
-                        style={isDay ? undefined : { colorScheme: "dark" }}
-                      >
-                        <option value="">Seleziona un torneo…</option>
-                        {tournamentOptions.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <SearchSelect
+                      label="Torneo"
+                      value={selectedTournamentId}
+                      options={tournamentOptions}
+                      placeholder="Scrivi per cercare un torneo..."
+                      onChange={setSelectedTournamentId}
+                      isDay={isDay}
+                    />
 
                     <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
                       Buy-in
