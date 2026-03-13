@@ -226,21 +226,12 @@ function SharkScopeStyleChart({
     return padTop + ((maxY - y) / (maxY - minY || 1)) * usable;
   };
 
-  function buildStepPath(points: CumulativePoint[]) {
-    if (points.length === 0) return "";
-
-    let d = `M ${xScale(points[0].x)} ${yScale(points[0].y)}`;
-
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const cur = points[i];
-
-      d += ` L ${xScale(cur.x)} ${yScale(prev.y)}`;
-      d += ` L ${xScale(cur.x)} ${yScale(cur.y)}`;
-    }
-
-    return d;
-  }
+  function buildPath(points: CumulativePoint[]) {
+  if (points.length === 0) return "";
+  return points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.x)} ${yScale(p.y)}`)
+    .join(" ");
+}
 
   const zeroY = yScale(0);
   const ticks = 6;
@@ -293,20 +284,20 @@ function SharkScopeStyleChart({
 
         {edoardoPoints.length > 0 && (
           <path
-            d={buildStepPath(edoardoPoints)}
-            fill="none"
-            stroke="#2563eb"
-            strokeWidth="2.5"
-          />
+  d={buildPath(edoardoPoints)}
+  fill="none"
+  stroke="#2563eb"
+  strokeWidth="2.5"
+/>
         )}
 
         {andreaPoints.length > 0 && (
           <path
-            d={buildStepPath(andreaPoints)}
-            fill="none"
-            stroke="#dc2626"
-            strokeWidth="2.5"
-          />
+  d={buildPath(andreaPoints)}
+  fill="none"
+  stroke="#dc2626"
+  strokeWidth="2.5"
+/>
         )}
 
         {edoardoPoints.map((p, i) => (
@@ -777,22 +768,18 @@ export default function PokerPage() {
   let edoardoRunning = 0;
   let andreaRunning = 0;
 
-  const edoardoPoints: CumulativePoint[] = [{ x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" }];
-  const andreaPoints: CumulativePoint[] = [{ x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" }];
+  const edoardoPoints: CumulativePoint[] = [
+    { x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" },
+  ];
+
+  const andreaPoints: CumulativePoint[] = [
+    { x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" },
+  ];
 
   for (const ev of events) {
     globalIndex += 1;
 
     if (ev.player === "Edoardo") {
-      edoardoPoints.push({
-        x: globalIndex,
-        y: edoardoRunning,
-        at: ev.at,
-        label: ev.label,
-        delta: 0,
-        kind: ev.kind,
-      });
-
       edoardoRunning += ev.delta;
 
       edoardoPoints.push({
@@ -804,15 +791,6 @@ export default function PokerPage() {
         kind: ev.kind,
       });
     } else {
-      andreaPoints.push({
-        x: globalIndex,
-        y: andreaRunning,
-        at: ev.at,
-        label: ev.label,
-        delta: 0,
-        kind: ev.kind,
-      });
-
       andreaRunning += ev.delta;
 
       andreaPoints.push({
