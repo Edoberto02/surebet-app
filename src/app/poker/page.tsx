@@ -192,12 +192,12 @@ function SharkScopeStyleChart({
   andreaPoints: CumulativePoint[];
   isDay: boolean;
 }) {
-  const width = 1100;
-  const height = 380;
-  const padLeft = 58;
-  const padRight = 18;
+  const width = 1120;
+  const height = 420;
+  const padLeft = 64;
+  const padRight = 20;
   const padTop = 20;
-  const padBottom = 42;
+  const padBottom = 48;
 
   const allPoints = [...edoardoPoints, ...andreaPoints];
   if (allPoints.length === 0) {
@@ -208,13 +208,7 @@ function SharkScopeStyleChart({
     );
   }
 
-  const minX = 0;
-  const maxX = Math.max(
-    edoardoPoints.length ? edoardoPoints[edoardoPoints.length - 1].x : 0,
-    andreaPoints.length ? andreaPoints[andreaPoints.length - 1].x : 0,
-    1
-  );
-
+  const maxX = Math.max(...allPoints.map((p) => p.x), 1);
   const allY = [0, ...allPoints.map((p) => p.y)];
   const minYRaw = Math.min(...allY);
   const maxYRaw = Math.max(...allY);
@@ -224,7 +218,7 @@ function SharkScopeStyleChart({
 
   const xScale = (x: number) => {
     const usable = width - padLeft - padRight;
-    return padLeft + ((x - minX) / (maxX - minX || 1)) * usable;
+    return padLeft + (x / (maxX || 1)) * usable;
   };
 
   const yScale = (y: number) => {
@@ -232,21 +226,49 @@ function SharkScopeStyleChart({
     return padTop + ((maxY - y) / (maxY - minY || 1)) * usable;
   };
 
-  const buildPath = (points: CumulativePoint[]) => {
+  function buildStepPath(points: CumulativePoint[]) {
     if (points.length === 0) return "";
-    return points.map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.x)} ${yScale(p.y)}`).join(" ");
-  };
+
+    let d = `M ${xScale(points[0].x)} ${yScale(points[0].y)}`;
+
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const cur = points[i];
+
+      d += ` L ${xScale(cur.x)} ${yScale(prev.y)}`;
+      d += ` L ${xScale(cur.x)} ${yScale(cur.y)}`;
+    }
+
+    return d;
+  }
 
   const zeroY = yScale(0);
-  const ticks = 5;
-  const yTickValues = Array.from({ length: ticks }, (_, i) => minY + ((maxY - minY) / (ticks - 1)) * i);
+  const ticks = 6;
+  const yTickValues = Array.from(
+    { length: ticks },
+    (_, i) => minY + ((maxY - minY) / (ticks - 1)) * i
+  );
 
   return (
     <div className="overflow-x-auto">
-      <svg width={width} height={height} className="min-w-[1100px]">
-        <line x1={padLeft} y1={padTop} x2={padLeft} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
-        <line x1={padLeft} y1={height - padBottom} x2={width - padRight} y2={height - padBottom} stroke={isDay ? "#64748b" : "#71717a"} />
-        <line x1={padLeft} y1={zeroY} x2={width - padRight} y2={zeroY} stroke={isDay ? "#94a3b8" : "#52525b"} strokeDasharray="4 4" />
+      <svg width={width} height={height} className="min-w-[1120px]">
+        <rect
+          x={padLeft}
+          y={padTop}
+          width={width - padLeft - padRight}
+          height={height - padTop - padBottom}
+          fill={isDay ? "#ffffff" : "#09090b"}
+          stroke={isDay ? "#e2e8f0" : "#27272a"}
+        />
+
+        <line
+          x1={padLeft}
+          y1={zeroY}
+          x2={width - padRight}
+          y2={zeroY}
+          stroke={isDay ? "#94a3b8" : "#52525b"}
+          strokeDasharray="4 4"
+        />
 
         {yTickValues.map((tick, i) => (
           <g key={i}>
@@ -255,7 +277,7 @@ function SharkScopeStyleChart({
               y1={yScale(tick)}
               x2={width - padRight}
               y2={yScale(tick)}
-              stroke={isDay ? "#e2e8f0" : "#27272a"}
+              stroke={isDay ? "#e2e8f0" : "#18181b"}
             />
             <text
               x={padLeft - 8}
@@ -270,43 +292,66 @@ function SharkScopeStyleChart({
         ))}
 
         {edoardoPoints.length > 0 && (
-          <path d={buildPath(edoardoPoints)} fill="none" stroke="#2563eb" strokeWidth="2.5" />
+          <path
+            d={buildStepPath(edoardoPoints)}
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth="2.5"
+          />
         )}
+
         {andreaPoints.length > 0 && (
-          <path d={buildPath(andreaPoints)} fill="none" stroke="#dc2626" strokeWidth="2.5" />
+          <path
+            d={buildStepPath(andreaPoints)}
+            fill="none"
+            stroke="#dc2626"
+            strokeWidth="2.5"
+          />
         )}
 
         {edoardoPoints.map((p, i) => (
-          <circle key={`e-${i}`} cx={xScale(p.x)} cy={yScale(p.y)} r="3.5" fill="#2563eb">
+          <circle
+            key={`e-${i}`}
+            cx={xScale(p.x)}
+            cy={yScale(p.y)}
+            r={p.kind === "return" ? 4 : 2.8}
+            fill="#2563eb"
+          >
             <title>{`Edoardo · ${p.label} · ${formatDateTimeIT(p.at)} · ${p.kind === "buyin" ? "Buy-in" : "Incasso"} ${euro(p.delta)} · Totale ${euro(p.y)}`}</title>
           </circle>
         ))}
 
         {andreaPoints.map((p, i) => (
-          <circle key={`a-${i}`} cx={xScale(p.x)} cy={yScale(p.y)} r="3.5" fill="#dc2626">
+          <circle
+            key={`a-${i}`}
+            cx={xScale(p.x)}
+            cy={yScale(p.y)}
+            r={p.kind === "return" ? 4 : 2.8}
+            fill="#dc2626"
+          >
             <title>{`Andrea · ${p.label} · ${formatDateTimeIT(p.at)} · ${p.kind === "buyin" ? "Buy-in" : "Incasso"} ${euro(p.delta)} · Totale ${euro(p.y)}`}</title>
           </circle>
         ))}
 
         <text
-          x={padLeft - 38}
+          x={padLeft - 42}
           y={height / 2}
           textAnchor="middle"
           fontSize="12"
           fill={isDay ? "#64748b" : "#a1a1aa"}
-          transform={`rotate(-90 ${padLeft - 38} ${height / 2})`}
+          transform={`rotate(-90 ${padLeft - 42} ${height / 2})`}
         >
-          Profitto cumulato (€)
+          Guadagno cumulato (€)
         </text>
 
         <text
           x={width / 2}
-          y={height - 10}
+          y={height - 12}
           textAnchor="middle"
           fontSize="12"
           fill={isDay ? "#64748b" : "#a1a1aa"}
         >
-          Tempo / eventi di buy-in e incasso
+          Sequenza cronologica eventi
         </text>
       </svg>
     </div>
@@ -693,68 +738,96 @@ export default function PokerPage() {
   }, [accounts]);
 
   const sharkChartData = useMemo(() => {
-    const events: ProfitEvent[] = [];
+  const events: ProfitEvent[] = [];
 
-    for (const session of closedSessions) {
-      const sessionEntries = entriesBySessionId.get(session.id) ?? [];
-      for (const entry of sessionEntries) {
-        events.push({
-          player: session.player_name,
-          at: entry.created_at,
-          delta: -Number(entry.buy_in ?? 0),
-          label: entry.tournament_name_snapshot,
-          kind: "buyin",
-        });
+  for (const session of closedSessions) {
+    const sessionEntries = entriesBySessionId.get(session.id) ?? [];
 
-        const totalReturn = Number(entry.itm ?? 0) + Number(entry.bounty ?? 0);
-        events.push({
-          player: session.player_name,
-          at: session.closed_at ?? entry.created_at,
-          delta: totalReturn,
-          label: entry.tournament_name_snapshot,
-          kind: "return",
-        });
-      }
+    for (const entry of sessionEntries) {
+      events.push({
+        player: session.player_name,
+        at: entry.created_at,
+        delta: -Number(entry.buy_in ?? 0),
+        label: `${entry.tournament_name_snapshot} · Buy-in`,
+        kind: "buyin",
+      });
+
+      const totalReturn = Number(entry.itm ?? 0) + Number(entry.bounty ?? 0);
+
+      events.push({
+        player: session.player_name,
+        at: session.closed_at ?? entry.created_at,
+        delta: totalReturn,
+        label: `${entry.tournament_name_snapshot} · Return`,
+        kind: "return",
+      });
     }
+  }
 
-    events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  events.sort((a, b) => {
+    const ta = new Date(a.at).getTime();
+    const tb = new Date(b.at).getTime();
+    if (ta !== tb) return ta - tb;
 
-    let edoardoRunning = 0;
-    let andreaRunning = 0;
-    let edoardoX = 0;
-    let andreaX = 0;
+    if (a.kind === b.kind) return 0;
+    return a.kind === "buyin" ? -1 : 1;
+  });
 
-    const edoardoPoints: CumulativePoint[] = [{ x: 0, y: 0, at: new Date().toISOString(), label: "Start", delta: 0, kind: "buyin" }];
-    const andreaPoints: CumulativePoint[] = [{ x: 0, y: 0, at: new Date().toISOString(), label: "Start", delta: 0, kind: "buyin" }];
+  let globalIndex = 0;
+  let edoardoRunning = 0;
+  let andreaRunning = 0;
 
-    for (const ev of events) {
-      if (ev.player === "Edoardo") {
-        edoardoX += 1;
-        edoardoRunning += ev.delta;
-        edoardoPoints.push({
-          x: edoardoX,
-          y: edoardoRunning,
-          at: ev.at,
-          label: ev.label,
-          delta: ev.delta,
-          kind: ev.kind,
-        });
-      } else {
-        andreaX += 1;
-        andreaRunning += ev.delta;
-        andreaPoints.push({
-          x: andreaX,
-          y: andreaRunning,
-          at: ev.at,
-          label: ev.label,
-          delta: ev.delta,
-          kind: ev.kind,
-        });
-      }
+  const edoardoPoints: CumulativePoint[] = [{ x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" }];
+  const andreaPoints: CumulativePoint[] = [{ x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" }];
+
+  for (const ev of events) {
+    globalIndex += 1;
+
+    if (ev.player === "Edoardo") {
+      edoardoPoints.push({
+        x: globalIndex,
+        y: edoardoRunning,
+        at: ev.at,
+        label: ev.label,
+        delta: 0,
+        kind: ev.kind,
+      });
+
+      edoardoRunning += ev.delta;
+
+      edoardoPoints.push({
+        x: globalIndex,
+        y: edoardoRunning,
+        at: ev.at,
+        label: ev.label,
+        delta: ev.delta,
+        kind: ev.kind,
+      });
+    } else {
+      andreaPoints.push({
+        x: globalIndex,
+        y: andreaRunning,
+        at: ev.at,
+        label: ev.label,
+        delta: 0,
+        kind: ev.kind,
+      });
+
+      andreaRunning += ev.delta;
+
+      andreaPoints.push({
+        x: globalIndex,
+        y: andreaRunning,
+        at: ev.at,
+        label: ev.label,
+        delta: ev.delta,
+        kind: ev.kind,
+      });
     }
+  }
 
-    return { edoardoPoints, andreaPoints };
-  }, [closedSessions, entriesBySessionId]);
+  return { edoardoPoints, andreaPoints };
+}, [closedSessions, entriesBySessionId]);
 
   const tournamentRanking = useMemo(() => {
     const map = new Map<string, TournamentRankingRow>();
