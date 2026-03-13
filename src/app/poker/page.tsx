@@ -58,6 +58,12 @@ function normalizeName(value: string) {
   return value.trim().toLowerCase();
 }
 
+function monthLabel(monthStartISO: string) {
+  const d = new Date(monthStartISO + "T00:00:00");
+  const txt = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(d);
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
 function SearchSelect({
   label,
   value,
@@ -234,24 +240,10 @@ export default function PokerPage() {
       { data: entriesData, error: entriesError },
       { data: accountsData, error: accountsError },
     ] = await Promise.all([
-      supabase
-        .from("poker_tournaments")
-        .select("id,name,buy_in")
-        .order("name", { ascending: true }),
-
-      supabase
-        .from("poker_sessions")
-        .select("id,player_name,status,created_at,closed_at")
-        .order("created_at", { ascending: false }),
-
-      supabase
-        .from("poker_session_entries")
-        .select("id,session_id,tournament_id,tournament_name_snapshot,buy_in,itm,bounty,created_at")
-        .order("created_at", { ascending: true }),
-
-      supabase
-        .from("accounts")
-        .select("id,person_name,bookmaker_name,balance"),
+      supabase.from("poker_tournaments").select("id,name,buy_in").order("name", { ascending: true }),
+      supabase.from("poker_sessions").select("id,player_name,status,created_at,closed_at").order("created_at", { ascending: false }),
+      supabase.from("poker_session_entries").select("id,session_id,tournament_id,tournament_name_snapshot,buy_in,itm,bounty,created_at").order("created_at", { ascending: true }),
+      supabase.from("accounts").select("id,person_name,bookmaker_name,balance"),
     ]);
 
     const err = tournamentsError || sessionsError || entriesError || accountsError;
@@ -270,14 +262,12 @@ export default function PokerPage() {
 
     setDraftValues((prev) => {
       const next: Record<string, { itm: string; bounty: string }> = {};
-
       for (const entry of nextEntries) {
         next[entry.id] = prev[entry.id] ?? {
           itm: entry.itm !== null ? String(entry.itm) : "",
           bounty: entry.bounty !== null ? String(entry.bounty) : "",
         };
       }
-
       return next;
     });
 
@@ -293,7 +283,6 @@ export default function PokerPage() {
       setSessionBuyIn("");
       return;
     }
-
     const found = tournaments.find((t) => t.id === selectedTournamentId);
     setSessionBuyIn(found ? String(found.buy_in) : "");
   }, [selectedTournamentId, tournaments]);
@@ -312,9 +301,7 @@ export default function PokerPage() {
 
     for (const s of sessions) {
       if (s.status !== "open") continue;
-      if (!map.get(s.player_name)) {
-        map.set(s.player_name, s);
-      }
+      if (!map.get(s.player_name)) map.set(s.player_name, s);
     }
 
     return map;
@@ -322,13 +309,11 @@ export default function PokerPage() {
 
   const entriesBySessionId = useMemo(() => {
     const map = new Map<string, PokerSessionEntryRow[]>();
-
     for (const entry of entries) {
       const arr = map.get(entry.session_id) ?? [];
       arr.push(entry);
       map.set(entry.session_id, arr);
     }
-
     return map;
   }, [entries]);
 
@@ -356,7 +341,6 @@ export default function PokerPage() {
 
     for (const session of closedSessions) {
       const sessionEntries = entriesBySessionId.get(session.id) ?? [];
-
       const totalBuyIn = sessionEntries.reduce((sum, x) => sum + Number(x.buy_in ?? 0), 0);
       const totalItm = sessionEntries.reduce((sum, x) => sum + Number(x.itm ?? 0), 0);
       const totalBounty = sessionEntries.reduce((sum, x) => sum + Number(x.bounty ?? 0), 0);
@@ -374,6 +358,88 @@ export default function PokerPage() {
     return map;
   }, [closedSessions, entriesBySessionId]);
 
+  const groupedClosedByPlayer = useMemo(() => {
+    function buildForPlayer(playerName: "Edoardo" | "Andrea") {
+      const playerSessions = closedSessions.filter((s) => s.player_name === playerName);
+
+      const monthMap = new Map<
+        string,
+        {
+          monthTotal: number;
+          days: Map<
+            string,
+            {
+              dayTotal: number;
+              sessions: PokerSessionRow[];
+            }
+          >;
+        }
+      >();
+
+      for (const session of playerSessions) {
+        const closedAt = session.closed_at ?? session.created_at;
+        const dayISO = new Date(closedAt).toLocaleDateString("sv-SE");
+        const monthStart = dayISO.slice(0, 7) + "-01";
+        const total = summaryByClosedSessionId.get(session.id)?.totalProfit ?? 0;
+
+        if (!monthMap.has(monthStart)) {
+          monthMap.set(monthStart, { monthTotal: 0, days: new Map() });
+        }
+
+        const month = monthMap.get(monthStart)!;
+        month.monthTotal += total;
+
+        if (!month.days.has(dayISO)) {
+          month.days.set(dayISO, { dayTotal: 0, sessions: [] });
+        }
+
+        const day = month.days.get(dayISO)!;
+        day.dayTotal += total;
+        day.sessions.push(session);
+      }
+
+      return Array.from(monthMap.entries())
+        .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+        .map(([monthStart, month]) => ({
+          monthStart,
+          monthTotal: month.monthTotal,
+          days: Array.from(month.days.entries())
+            .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+            .map(([dayISO, day]) => ({
+              dayISO,
+              dayTotal: day.dayTotal,
+              sessions: day.sessions.sort((a, b) => {
+                const aTime = a.closed_at ? new Date(a.closed_at).getTime() : 0;
+                const bTime = b.closed_at ? new Date(b.closed_at).getTime() : 0;
+                return bTime - aTime;
+              }),
+            })),
+        }));
+    }
+
+    return {
+      Edoardo: buildForPlayer("Edoardo"),
+      Andrea: buildForPlayer("Andrea"),
+    };
+  }, [closedSessions, summaryByClosedSessionId]);
+
+  const overallProfits = useMemo(() => {
+    let edoardo = 0;
+    let andrea = 0;
+
+    for (const session of closedSessions) {
+      const profit = summaryByClosedSessionId.get(session.id)?.totalProfit ?? 0;
+      if (session.player_name === "Edoardo") edoardo += profit;
+      if (session.player_name === "Andrea") andrea += profit;
+    }
+
+    return {
+      edoardo,
+      andrea,
+      total: edoardo + andrea,
+    };
+  }, [closedSessions, summaryByClosedSessionId]);
+
   const pokerstarsBalances = useMemo(() => {
     let edoardo = 0;
     let andrea = 0;
@@ -383,7 +449,6 @@ export default function PokerPage() {
       const person = normalizeName(account.person_name);
 
       if (bookmaker !== "pokerstars") continue;
-
       if (person === "edoardo") edoardo += Number(account.balance ?? 0);
       if (person === "andrea") andrea += Number(account.balance ?? 0);
     }
@@ -393,51 +458,26 @@ export default function PokerPage() {
 
   async function createTournament() {
     setErrorMsg("");
-
     const cleanName = newTournamentName.trim();
     const cleanBuyIn = toNumberInput(newTournamentBuyIn);
 
-    if (!cleanName) {
-      setErrorMsg("Inserisci il nome del torneo");
-      return;
-    }
+    if (!cleanName) return setErrorMsg("Inserisci il nome del torneo");
+    if (!Number.isFinite(cleanBuyIn) || cleanBuyIn <= 0) return setErrorMsg("Inserisci un buy-in valido");
 
-    if (!Number.isFinite(cleanBuyIn) || cleanBuyIn <= 0) {
-      setErrorMsg("Inserisci un buy-in valido");
-      return;
-    }
-
-    const alreadyExists = tournaments.some(
-      (t) => t.name.trim().toLowerCase() === cleanName.toLowerCase()
-    );
-
-    if (alreadyExists) {
-      setErrorMsg("Questo torneo esiste già");
-      return;
-    }
+    const alreadyExists = tournaments.some((t) => t.name.trim().toLowerCase() === cleanName.toLowerCase());
+    if (alreadyExists) return setErrorMsg("Questo torneo esiste già");
 
     const { data, error } = await supabase
       .from("poker_tournaments")
-      .insert([
-        {
-          name: cleanName,
-          buy_in: cleanBuyIn,
-        },
-      ])
+      .insert([{ name: cleanName, buy_in: cleanBuyIn }])
       .select("id,name,buy_in")
       .single();
 
-    if (error) {
-      setErrorMsg(error.message);
-      return;
-    }
+    if (error) return setErrorMsg(error.message);
 
     const created = data as TournamentRow;
 
-    setTournaments((prev) =>
-      [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
-    );
-
+    setTournaments((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     setSelectedTournamentId(created.id);
     setSessionBuyIn(String(created.buy_in));
     setNewTournamentName("");
@@ -446,26 +486,14 @@ export default function PokerPage() {
 
   async function addTournamentToSession() {
     setErrorMsg("");
-
-    if (!selectedPlayer) {
-      setErrorMsg("Seleziona il giocatore");
-      return;
-    }
-
-    if (!selectedTournamentId) {
-      setErrorMsg("Seleziona un torneo");
-      return;
-    }
+    if (!selectedTournamentId) return setErrorMsg("Seleziona un torneo");
 
     const { error } = await supabase.rpc("add_poker_tournament_to_current_session", {
       p_player_name: selectedPlayer,
       p_tournament_id: selectedTournamentId,
     });
 
-    if (error) {
-      setErrorMsg(error.message);
-      return;
-    }
+    if (error) return setErrorMsg(error.message);
 
     setSelectedTournamentId("");
     setSessionBuyIn("");
@@ -476,30 +504,17 @@ export default function PokerPage() {
     setErrorMsg("");
 
     const draft = draftValues[entryId] ?? { itm: "", bounty: "" };
-
     const itm = toNumberInput(draft.itm);
     const bounty = toNumberInput(draft.bounty);
 
     if (!Number.isFinite(itm) || itm < 0 || !Number.isFinite(bounty) || bounty < 0) {
-      setErrorMsg("ITM e Bounty devono essere numeri uguali o maggiori di 0");
-      return;
+      return setErrorMsg("ITM e Bounty devono essere numeri uguali o maggiori di 0");
     }
 
-    const { error } = await supabase
-      .from("poker_session_entries")
-      .update({ itm, bounty })
-      .eq("id", entryId);
+    const { error } = await supabase.from("poker_session_entries").update({ itm, bounty }).eq("id", entryId);
+    if (error) return setErrorMsg(error.message);
 
-    if (error) {
-      setErrorMsg(error.message);
-      return;
-    }
-
-    setEntries((prev) =>
-      prev.map((entry) =>
-        entry.id === entryId ? { ...entry, itm, bounty } : entry
-      )
-    );
+    setEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, itm, bounty } : entry)));
   }
 
   async function deleteEntry(entryId: string) {
@@ -507,33 +522,30 @@ export default function PokerPage() {
     if (!ok) return;
 
     setErrorMsg("");
-
-    const { error } = await supabase.rpc("delete_poker_session_entry", {
-      p_entry_id: entryId,
-    });
-
-    if (error) {
-      setErrorMsg(error.message);
-      return;
-    }
+    const { error } = await supabase.rpc("delete_poker_session_entry", { p_entry_id: entryId });
+    if (error) return setErrorMsg(error.message);
 
     await loadAll(false);
   }
 
   async function closeSession(sessionId: string) {
     setErrorMsg("");
-
-    const { error } = await supabase.rpc("close_poker_session", {
-      p_session_id: sessionId,
-    });
-
-    if (error) {
-      setErrorMsg(error.message);
-      return;
-    }
+    const { error } = await supabase.rpc("close_poker_session", { p_session_id: sessionId });
+    if (error) return setErrorMsg(error.message);
 
     await loadAll(false);
     setActiveView("riepilogo");
+  }
+
+  async function deleteClosedSession(sessionId: string) {
+    const ok = window.confirm("Vuoi eliminare questa sessione chiusa? Il saldo PokerStars verrà ripristinato.");
+    if (!ok) return;
+
+    setErrorMsg("");
+    const { error } = await supabase.rpc("delete_closed_poker_session", { p_session_id: sessionId });
+    if (error) return setErrorMsg(error.message);
+
+    await loadAll(false);
   }
 
   function renderSessionColumn(playerName: "Edoardo" | "Andrea") {
@@ -543,9 +555,7 @@ export default function PokerPage() {
     const canClose =
       !!session &&
       sessionEntries.length > 0 &&
-      sessionEntries.every(
-        (entry) => entry.itm !== null && entry.bounty !== null
-      );
+      sessionEntries.every((entry) => entry.itm !== null && entry.bounty !== null);
 
     const totalBuyIn = sessionEntries.reduce((sum, x) => sum + Number(x.buy_in ?? 0), 0);
     const totalItm = sessionEntries.reduce((sum, x) => sum + Number(x.itm ?? 0), 0);
@@ -562,9 +572,7 @@ export default function PokerPage() {
                 {session ? `Sessione aperta il ${formatDateTimeIT(session.created_at)}` : "Nessuna sessione aperta"}
               </div>
             </div>
-            <div className={headerCounterCls}>
-              {sessionEntries.length} tornei
-            </div>
+            <div className={headerCounterCls}>{sessionEntries.length} tornei</div>
           </div>
         </div>
 
@@ -604,7 +612,6 @@ export default function PokerPage() {
                           <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
                             {formatDateTimeIT(entry.created_at)}
                           </div>
-
                           <button onClick={() => deleteEntry(entry.id)} className={btnDanger}>
                             Elimina
                           </button>
@@ -650,13 +657,9 @@ export default function PokerPage() {
                       </div>
 
                       <div className="mt-4 flex items-center gap-3">
-                        <button
-                          onClick={() => saveEntryFields(entry.id)}
-                          className={isSaved ? btnSaved : btnUnsaved}
-                        >
+                        <button onClick={() => saveEntryFields(entry.id)} className={isSaved ? btnSaved : btnUnsaved}>
                           {isSaved ? "Salvato" : "Salva ITM / Bounty"}
                         </button>
-
                         <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
                           {isSaved ? "Valori già salvati" : "Ci sono modifiche da salvare"}
                         </div>
@@ -668,21 +671,11 @@ export default function PokerPage() {
 
               <div className={innerCls + " mt-4 p-4"}>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="font-semibold">Tornei:</span> {sessionEntries.length}
-                  </div>
-                  <div>
-                    <span className="font-semibold">Buy-in totale:</span> {euro(totalBuyIn)}
-                  </div>
-                  <div>
-                    <span className="font-semibold">ITM totale:</span> {euro(totalItm)}
-                  </div>
-                  <div>
-                    <span className="font-semibold">Bounty totale:</span> {euro(totalBounty)}
-                  </div>
-                  <div className="col-span-2">
-                    <span className="font-semibold">Profitto sessione:</span> {euro(totalProfit)}
-                  </div>
+                  <div><span className="font-semibold">Tornei:</span> {sessionEntries.length}</div>
+                  <div><span className="font-semibold">Buy-in totale:</span> {euro(totalBuyIn)}</div>
+                  <div><span className="font-semibold">ITM totale:</span> {euro(totalItm)}</div>
+                  <div><span className="font-semibold">Bounty totale:</span> {euro(totalBounty)}</div>
+                  <div className="col-span-2"><span className="font-semibold">Profitto sessione:</span> {euro(totalProfit)}</div>
                 </div>
               </div>
 
@@ -700,32 +693,117 @@ export default function PokerPage() {
     );
   }
 
+  function renderClosedPlayerSection(playerName: "Edoardo" | "Andrea") {
+    const months = groupedClosedByPlayer[playerName];
+
+    return (
+      <div className="overflow-hidden rounded-2xl border border-red-200">
+        <div className={sectionHeaderCls}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xl font-semibold tracking-wide text-white">{playerName}</h3>
+              <div className="mt-1 text-sm text-red-100">Sessioni chiuse raggruppate per mese e giorno.</div>
+            </div>
+            <div className={headerCounterCls}>
+              {playerName === "Edoardo" ? euro(overallProfits.edoardo) : euro(overallProfits.andrea)}
+            </div>
+          </div>
+        </div>
+
+        <div className={panelCls + " p-6"}>
+          {months.length === 0 ? (
+            <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
+              Nessuna sessione chiusa per {playerName}.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {months.map((month) => (
+                <details key={month.monthStart} className={innerCls}>
+                  <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                    <div className={isDay ? "text-sm font-semibold text-slate-900" : "text-sm font-semibold text-zinc-100"}>
+                      {monthLabel(month.monthStart)}
+                    </div>
+                    <div className="text-sm font-semibold">
+                      Totale mese: {euro(month.monthTotal)}
+                    </div>
+                  </summary>
+
+                  <div className="px-4 pb-4 space-y-2">
+                    {month.days.map((day) => (
+                      <details key={day.dayISO} className={innerCls}>
+                        <summary className="cursor-pointer select-none px-4 py-3 flex items-center justify-between">
+                          <div className={isDay ? "text-sm text-slate-900" : "text-sm text-zinc-100"}>
+                            {day.dayISO}
+                          </div>
+                          <div className="text-sm font-semibold">
+                            Totale giorno: {euro(day.dayTotal)}
+                          </div>
+                        </summary>
+
+                        <div className="px-4 pb-4 space-y-3">
+                          {day.sessions.map((session) => {
+                            const summary = summaryByClosedSessionId.get(session.id) ?? {
+                              count: 0,
+                              totalBuyIn: 0,
+                              totalItm: 0,
+                              totalBounty: 0,
+                              totalProfit: 0,
+                            };
+
+                            return (
+                              <div key={session.id} className={innerCls + " p-4"}>
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <div className="text-sm font-semibold">
+                                      Chiusura: {session.closed_at ? formatDateTimeIT(session.closed_at) : "—"}
+                                    </div>
+                                    <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
+                                      Apertura: {formatDateTimeIT(session.created_at)}
+                                    </div>
+                                  </div>
+
+                                  <button onClick={() => deleteClosedSession(session.id)} className={btnDanger}>
+                                    Elimina sessione
+                                  </button>
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                  <div><span className="font-semibold">Tornei:</span> {summary.count}</div>
+                                  <div><span className="font-semibold">Totale buy-in:</span> {euro(summary.totalBuyIn)}</div>
+                                  <div><span className="font-semibold">Totale ITM:</span> {euro(summary.totalItm)}</div>
+                                  <div><span className="font-semibold">Totale bounty:</span> {euro(summary.totalBounty)}</div>
+                                  <div className="col-span-2"><span className="font-semibold">Profitto finale:</span> {euro(summary.totalProfit)}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className={pageCls}>
       <div className="p-6">
         {errorMsg && (
           <div className={`${innerCls} mb-4 p-3 text-sm`}>
-            <span className={isDay ? "font-semibold text-red-700" : "font-semibold text-red-300"}>
-              Errore:
-            </span>{" "}
-            {errorMsg}
+            <span className={isDay ? "font-semibold text-red-700" : "font-semibold text-red-300"}>Errore:</span> {errorMsg}
           </div>
         )}
 
         <div className="mb-6 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveView("sessione")}
-            className={activeView === "sessione" ? activeTabCls : inactiveTabCls}
-          >
+          <button type="button" onClick={() => setActiveView("sessione")} className={activeView === "sessione" ? activeTabCls : inactiveTabCls}>
             Sessione
           </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveView("riepilogo")}
-            className={activeView === "riepilogo" ? activeTabCls : inactiveTabCls}
-          >
+          <button type="button" onClick={() => setActiveView("riepilogo")} className={activeView === "riepilogo" ? activeTabCls : inactiveTabCls}>
             Riepilogo
           </button>
         </div>
@@ -740,9 +818,7 @@ export default function PokerPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h2 className="text-xl font-semibold tracking-wide text-white">Sessione Corrente</h2>
-                      <div className="mt-1 text-sm text-red-100">
-                        Le sessioni aperte di Edoardo e Andrea vengono mostrate affiancate.
-                      </div>
+                      <div className="mt-1 text-sm text-red-100">Le sessioni aperte di Edoardo e Andrea vengono mostrate affiancate.</div>
                     </div>
                     <div className={headerCounterCls}>
                       Aperte: {(openSessionsByPlayer.get("Edoardo") ? 1 : 0) + (openSessionsByPlayer.get("Andrea") ? 1 : 0)}
@@ -756,7 +832,6 @@ export default function PokerPage() {
                       <div className="text-sm font-semibold">Saldo PokerStars Edoardo</div>
                       <div className="mt-2 text-lg font-semibold">{euro(pokerstarsBalances.edoardo)}</div>
                     </div>
-
                     <div className={innerCls + " p-4"}>
                       <div className="text-sm font-semibold">Saldo PokerStars Andrea</div>
                       <div className="mt-2 text-lg font-semibold">{euro(pokerstarsBalances.andrea)}</div>
@@ -809,12 +884,7 @@ export default function PokerPage() {
 
                     <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
                       Buy-in
-                      <input
-                        value={sessionBuyIn}
-                        readOnly
-                        className={inputCls}
-                        placeholder="Si compila automaticamente"
-                      />
+                      <input value={sessionBuyIn} readOnly className={inputCls} placeholder="Si compila automaticamente" />
                     </label>
 
                     <div className="mt-4">
@@ -829,22 +899,12 @@ export default function PokerPage() {
 
                     <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
                       Nome torneo
-                      <input
-                        value={newTournamentName}
-                        onChange={(e) => setNewTournamentName(e.target.value)}
-                        className={inputCls}
-                        placeholder="Es. Sunday Special"
-                      />
+                      <input value={newTournamentName} onChange={(e) => setNewTournamentName(e.target.value)} className={inputCls} placeholder="Es. Sunday Special" />
                     </label>
 
                     <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
                       Buy-in torneo
-                      <input
-                        value={newTournamentBuyIn}
-                        onChange={(e) => setNewTournamentBuyIn(e.target.value)}
-                        className={inputCls}
-                        placeholder="Es. 100"
-                      />
+                      <input value={newTournamentBuyIn} onChange={(e) => setNewTournamentBuyIn(e.target.value)} className={inputCls} placeholder="Es. 100" />
                     </label>
 
                     <div className="mt-4">
@@ -864,72 +924,41 @@ export default function PokerPage() {
             </section>
           </div>
         ) : (
-          <section className="overflow-hidden rounded-2xl border border-red-200">
-            <div className={sectionHeaderCls}>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold tracking-wide text-white">Riepilogo</h2>
-                  <div className="mt-1 text-sm text-red-100">Qui trovi le sessioni chiuse con i totali principali.</div>
+          <div className="space-y-6">
+            <section className="overflow-hidden rounded-2xl border border-red-200">
+              <div className={sectionHeaderCls}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-semibold tracking-wide text-white">Profitti complessivi</h2>
+                    <div className="mt-1 text-sm text-red-100">Totale Edoardo, totale Andrea e totale combinato.</div>
+                  </div>
+                  <div className={headerCounterCls}>{closedSessions.length} sessioni</div>
                 </div>
-                <div className={headerCounterCls}>{closedSessions.length} sessioni</div>
               </div>
-            </div>
 
-            <div className={panelCls + " p-6"}>
-              {closedSessions.length === 0 ? (
-                <div className={isDay ? "text-sm text-slate-600" : "text-sm text-zinc-400"}>
-                  Nessuna sessione chiusa.
+              <div className={panelCls + " p-6"}>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className={innerCls + " p-4"}>
+                    <div className="text-sm font-semibold">Profitto Edoardo</div>
+                    <div className="mt-2 text-lg font-semibold">{euro(overallProfits.edoardo)}</div>
+                  </div>
+                  <div className={innerCls + " p-4"}>
+                    <div className="text-sm font-semibold">Profitto Andrea</div>
+                    <div className="mt-2 text-lg font-semibold">{euro(overallProfits.andrea)}</div>
+                  </div>
+                  <div className={innerCls + " p-4"}>
+                    <div className="text-sm font-semibold">Profitto Totale</div>
+                    <div className="mt-2 text-lg font-semibold">{euro(overallProfits.total)}</div>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {closedSessions.map((session) => {
-                    const summary = summaryByClosedSessionId.get(session.id) ?? {
-                      count: 0,
-                      totalBuyIn: 0,
-                      totalItm: 0,
-                      totalBounty: 0,
-                      totalProfit: 0,
-                    };
+              </div>
+            </section>
 
-                    return (
-                      <div key={session.id} className={innerCls + " p-4"}>
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="text-sm font-semibold">{session.player_name}</div>
-                            <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                              Apertura: {formatDateTimeIT(session.created_at)}
-                            </div>
-                            <div className={isDay ? "mt-1 text-xs text-slate-500" : "mt-1 text-xs text-zinc-400"}>
-                              Chiusura: {session.closed_at ? formatDateTimeIT(session.closed_at) : "—"}
-                            </div>
-                          </div>
-
-                          <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
-                            Tornei: {summary.count}
-                          </div>
-                        </div>
-
-                        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <span className="font-semibold">Totale buy-in:</span> {euro(summary.totalBuyIn)}
-                          </div>
-                          <div>
-                            <span className="font-semibold">Totale ITM:</span> {euro(summary.totalItm)}
-                          </div>
-                          <div>
-                            <span className="font-semibold">Totale bounty:</span> {euro(summary.totalBounty)}
-                          </div>
-                          <div>
-                            <span className="font-semibold">Profitto finale:</span> {euro(summary.totalProfit)}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+            <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
+              {renderClosedPlayerSection("Edoardo")}
+              {renderClosedPlayerSection("Andrea")}
             </div>
-          </section>
+          </div>
         )}
       </div>
     </main>
