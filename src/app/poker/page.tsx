@@ -29,6 +29,13 @@ type PokerSessionEntryRow = {
   created_at: string;
 };
 
+type AccountRow = {
+  id: string;
+  person_name: string;
+  bookmaker_name: string;
+  balance: number;
+};
+
 function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
@@ -40,6 +47,10 @@ function toNumberInput(value: string) {
 
 function formatDateTimeIT(value: string) {
   return new Date(value).toLocaleString("it-IT");
+}
+
+function normalizeName(value: string) {
+  return value.trim().toLowerCase();
 }
 
 export default function PokerPage() {
@@ -78,6 +89,14 @@ export default function PokerPage() {
     ? "rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 transition"
     : "rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 transition";
 
+  const btnSaved = isDay
+    ? "rounded-xl bg-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+    : "rounded-xl bg-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-200";
+
+  const btnUnsaved = isDay
+    ? "rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-400 transition"
+    : "rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-500 transition";
+
   const activeTabCls = isDay
     ? "rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white"
     : "rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white";
@@ -93,6 +112,7 @@ export default function PokerPage() {
   const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
   const [sessions, setSessions] = useState<PokerSessionRow[]>([]);
   const [entries, setEntries] = useState<PokerSessionEntryRow[]>([]);
+  const [accounts, setAccounts] = useState<AccountRow[]>([]);
 
   const [selectedPlayer, setSelectedPlayer] = useState<"Edoardo" | "Andrea">("Edoardo");
   const [selectedTournamentId, setSelectedTournamentId] = useState("");
@@ -111,6 +131,7 @@ export default function PokerPage() {
       { data: tournamentsData, error: tournamentsError },
       { data: sessionsData, error: sessionsError },
       { data: entriesData, error: entriesError },
+      { data: accountsData, error: accountsError },
     ] = await Promise.all([
       supabase
         .from("poker_tournaments")
@@ -126,9 +147,13 @@ export default function PokerPage() {
         .from("poker_session_entries")
         .select("id,session_id,tournament_id,tournament_name_snapshot,buy_in,itm,bounty,created_at")
         .order("created_at", { ascending: true }),
+
+      supabase
+        .from("accounts")
+        .select("id,person_name,bookmaker_name,balance"),
     ]);
 
-    const err = tournamentsError || sessionsError || entriesError;
+    const err = tournamentsError || sessionsError || entriesError || accountsError;
     if (err) {
       setErrorMsg(err.message);
       setLoading(false);
@@ -140,6 +165,7 @@ export default function PokerPage() {
     setTournaments((tournamentsData ?? []) as TournamentRow[]);
     setSessions((sessionsData ?? []) as PokerSessionRow[]);
     setEntries(nextEntries);
+    setAccounts((accountsData ?? []) as AccountRow[]);
 
     setDraftValues((prev) => {
       const next: Record<string, { itm: string; bounty: string }> = {};
@@ -246,6 +272,23 @@ export default function PokerPage() {
 
     return map;
   }, [closedSessions, entriesBySessionId]);
+
+  const pokerstarsBalances = useMemo(() => {
+    let edoardo = 0;
+    let andrea = 0;
+
+    for (const account of accounts) {
+      const bookmaker = normalizeName(account.bookmaker_name);
+      const person = normalizeName(account.person_name);
+
+      if (bookmaker !== "pokerstars") continue;
+
+      if (person === "edoardo") edoardo += Number(account.balance ?? 0);
+      if (person === "andrea") andrea += Number(account.balance ?? 0);
+    }
+
+    return { edoardo, andrea };
+  }, [accounts]);
 
   async function createTournament() {
     setErrorMsg("");
@@ -440,6 +483,10 @@ export default function PokerPage() {
                   bounty: entry.bounty !== null ? String(entry.bounty) : "",
                 };
 
+                const isSaved =
+                  currentDraft.itm === (entry.itm !== null ? String(entry.itm) : "") &&
+                  currentDraft.bounty === (entry.bounty !== null ? String(entry.bounty) : "");
+
                 return (
                   <div key={entry.id} className={innerCls + " p-4"}>
                     <div className="flex items-start justify-between gap-3">
@@ -499,10 +546,17 @@ export default function PokerPage() {
                       </label>
                     </div>
 
-                    <div className="mt-4">
-                      <button onClick={() => saveEntryFields(entry.id)} className={btnNeutral}>
-                        Salva ITM / Bounty
+                    <div className="mt-4 flex items-center gap-3">
+                      <button
+                        onClick={() => saveEntryFields(entry.id)}
+                        className={isSaved ? btnSaved : btnUnsaved}
+                      >
+                        {isSaved ? "Salvato" : "Salva ITM / Bounty"}
                       </button>
+
+                      <div className={isDay ? "text-xs text-slate-500" : "text-xs text-zinc-400"}>
+                        {isSaved ? "Valori già salvati" : "Ci sono modifiche da salvare"}
+                      </div>
                     </div>
                   </div>
                 );
@@ -581,6 +635,18 @@ export default function PokerPage() {
                 <h2 className="text-xl font-semibold">Sessione Corrente</h2>
                 <div className={isDay ? "mt-2 text-sm text-slate-600" : "mt-2 text-sm text-zinc-400"}>
                   Le sessioni aperte di Edoardo e Andrea vengono mostrate affiancate.
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className={innerCls + " p-4"}>
+                    <div className="text-sm font-semibold">Saldo PokerStars Edoardo</div>
+                    <div className="mt-2 text-lg font-semibold">{euro(pokerstarsBalances.edoardo)}</div>
+                  </div>
+
+                  <div className={innerCls + " p-4"}>
+                    <div className="text-sm font-semibold">Saldo PokerStars Andrea</div>
+                    <div className="mt-2 text-lg font-semibold">{euro(pokerstarsBalances.andrea)}</div>
+                  </div>
                 </div>
 
                 <div className="mt-6 grid grid-cols-1 gap-6 2xl:grid-cols-2">
