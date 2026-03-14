@@ -310,7 +310,7 @@ function SharkScopeStyleChart({
           <path d={buildPath(andreaPoints)} fill="none" stroke="#dc2626" strokeWidth="2.5" />
         )}
 
-        {edoardoPoints.map((p, i) => (
+                {edoardoPoints.map((p, i) => (
           <circle
             key={`e-${i}`}
             cx={xScale(p.x)}
@@ -318,11 +318,16 @@ function SharkScopeStyleChart({
             r={p.kind === "return" ? 4 : 2.8}
             fill="#2563eb"
           >
-            <title>{`Edoardo · ${p.label} · ${formatDateTimeIT(p.at)} · ${p.kind === "buyin" ? "Buy-in" : "Incasso"} ${euro(p.delta)} · Totale ${euro(p.y)}`}</title>
+            <title>{`Edoardo
+Torneo: ${p.label || "—"}
+Data: ${p.at ? formatDateTimeIT(p.at) : "—"}
+Movimento: ${p.kind === "buyin" ? "Buy-in" : "Incasso"}
+Importo: ${euro(p.delta)}
+Totale cumulato: ${euro(p.y)}`}</title>
           </circle>
         ))}
 
-        {andreaPoints.map((p, i) => (
+                {andreaPoints.map((p, i) => (
           <circle
             key={`a-${i}`}
             cx={xScale(p.x)}
@@ -330,17 +335,22 @@ function SharkScopeStyleChart({
             r={p.kind === "return" ? 4 : 2.8}
             fill="#dc2626"
           >
-            <title>{`Andrea · ${p.label} · ${formatDateTimeIT(p.at)} · ${p.kind === "buyin" ? "Buy-in" : "Incasso"} ${euro(p.delta)} · Totale ${euro(p.y)}`}</title>
+            <title>{`Andrea
+Torneo: ${p.label || "—"}
+Data: ${p.at ? formatDateTimeIT(p.at) : "—"}
+Movimento: ${p.kind === "buyin" ? "Buy-in" : "Incasso"}
+Importo: ${euro(p.delta)}
+Totale cumulato: ${euro(p.y)}`}</title>
           </circle>
         ))}
 
-        <text
-          x={padLeft - 42}
+                <text
+          x={padLeft - 52}
           y={height / 2}
           textAnchor="middle"
           fontSize="12"
           fill={isDay ? "#64748b" : "#a1a1aa"}
-          transform={`rotate(-90 ${padLeft - 42} ${height / 2})`}
+          transform={`rotate(-90 ${padLeft - 52} ${height / 2})`}
         >
           Guadagno cumulato (€)
         </text>
