@@ -1473,70 +1473,72 @@ export default function PokerPage() {
             </section>
           </div>
         ) : (
-          <div className="space-y-6">
+                  <div className="space-y-6">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <section className="overflow-hidden rounded-2xl border border-red-200">
-                <div className={sectionHeaderCls}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-xl font-semibold tracking-wide text-white">Profitti complessivi</h2>
-                      <div className="mt-1 text-sm text-red-100">
-                        Totale Edoardo, totale Andrea e totale combinato.
+              <div className="space-y-6">
+                <section className="overflow-hidden rounded-2xl border border-red-200">
+                  <div className={sectionHeaderCls}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h2 className="text-xl font-semibold tracking-wide text-white">Profitti complessivi</h2>
+                        <div className="mt-1 text-sm text-red-100">
+                          Totale Edoardo, totale Andrea e totale combinato.
+                        </div>
                       </div>
-                    </div>
-                    <div className={headerCounterCls}>{closedSessions.length} sessioni</div>
-                  </div>
-                </div>
-
-                <div className={panelCls + " p-6"}>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className={innerCls + " p-4"}>
-                      <div className="text-sm font-semibold">Profitto Edoardo</div>
-                      <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.edoardo, isDay)}`}>
-                        {euro(overallProfits.edoardo)}
-                      </div>
-                    </div>
-                    <div className={innerCls + " p-4"}>
-                      <div className="text-sm font-semibold">Profitto Andrea</div>
-                      <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.andrea, isDay)}`}>
-                        {euro(overallProfits.andrea)}
-                      </div>
-                    </div>
-                    <div className={innerCls + " p-4"}>
-                      <div className="text-sm font-semibold">Profitto Totale</div>
-                      <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.total, isDay)}`}>
-                        {euro(overallProfits.total)}
-                      </div>
+                      <div className={headerCounterCls}>{closedSessions.length} sessioni</div>
                     </div>
                   </div>
-                </div>
-              </section>
 
-              <section className="overflow-hidden rounded-2xl border border-red-200">
-                <div className={sectionHeaderCls}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-xl font-semibold tracking-wide text-white">Statistiche</h2>
-                      <div className="mt-1 text-sm text-red-100">
-                        ABI, ROI e indicatori principali su totale, Edoardo e Andrea.
+                  <div className={panelCls + " p-6"}>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className={innerCls + " p-4"}>
+                        <div className="text-sm font-semibold">Profitto Edoardo</div>
+                        <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.edoardo, isDay)}`}>
+                          {euro(overallProfits.edoardo)}
+                        </div>
+                      </div>
+                      <div className={innerCls + " p-4"}>
+                        <div className="text-sm font-semibold">Profitto Andrea</div>
+                        <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.andrea, isDay)}`}>
+                          {euro(overallProfits.andrea)}
+                        </div>
+                      </div>
+                      <div className={innerCls + " p-4"}>
+                        <div className="text-sm font-semibold">Profitto Totale</div>
+                        <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.total, isDay)}`}>
+                          {euro(overallProfits.total)}
+                        </div>
                       </div>
                     </div>
-                    <div className={headerCounterCls}>Live</div>
                   </div>
-                </div>
+                </section>
 
-                <div className={panelCls + " p-6 space-y-4"}>
-                  {renderStatsBlock("Totale", statsByPlayer.total)}
-                  {renderStatsBlock("Edoardo", statsByPlayer.Edoardo)}
-                  {renderStatsBlock("Andrea", statsByPlayer.Andrea)}
-                </div>
-              </section>
+                {renderClosedPlayerSection("Edoardo")}
+                {renderClosedPlayerSection("Andrea")}
+              </div>
+
+              <div>
+                <section className="overflow-hidden rounded-2xl border border-red-200">
+                  <div className={sectionHeaderCls}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h2 className="text-xl font-semibold tracking-wide text-white">Statistiche</h2>
+                        <div className="mt-1 text-sm text-red-100">
+                          ABI, ROI e indicatori principali su totale, Edoardo e Andrea.
+                        </div>
+                      </div>
+                      <div className={headerCounterCls}>Live</div>
+                    </div>
+                  </div>
+
+                  <div className={panelCls + " p-6 space-y-4"}>
+                    {renderStatsBlock("Totale", statsByPlayer.total)}
+                    {renderStatsBlock("Edoardo", statsByPlayer.Edoardo)}
+                    {renderStatsBlock("Andrea", statsByPlayer.Andrea)}
+                  </div>
+                </section>
+              </div>
             </div>
-
-                        <section className="space-y-6">
-              {renderClosedPlayerSection("Edoardo")}
-              {renderClosedPlayerSection("Andrea")}
-            </section>
 
             <section className="overflow-hidden rounded-2xl border border-red-200">
               <div className={sectionHeaderCls}>
