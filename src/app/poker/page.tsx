@@ -64,9 +64,29 @@ type TournamentRankingRow = {
   playedCount: number;
 };
 
+type StatsSummary = {
+  tournamentsPlayed: number;
+  totalBuyIn: number;
+  totalReturn: number;
+  netProfit: number;
+  abi: number;
+  roi: number;
+  avgProfitPerTournament: number;
+  itmCount: number;
+  itmPct: number;
+  avgReturnWhenItm: number;
+  bestTournamentName: string | null;
+  bestTournamentProfit: number | null;
+};
+
 function euro(n: number) {
   const v = Number.isFinite(n) ? n : 0;
   return v.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+}
+
+function pct(n: number) {
+  const v = Number.isFinite(n) ? n : 0;
+  return `${v.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
 
 function toNumberInput(value: string) {
@@ -227,11 +247,11 @@ function SharkScopeStyleChart({
   };
 
   function buildPath(points: CumulativePoint[]) {
-  if (points.length === 0) return "";
-  return points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.x)} ${yScale(p.y)}`)
-    .join(" ");
-}
+    if (points.length === 0) return "";
+    return points
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.x)} ${yScale(p.y)}`)
+      .join(" ");
+  }
 
   const zeroY = yScale(0);
   const ticks = 6;
@@ -283,21 +303,11 @@ function SharkScopeStyleChart({
         ))}
 
         {edoardoPoints.length > 0 && (
-          <path
-  d={buildPath(edoardoPoints)}
-  fill="none"
-  stroke="#2563eb"
-  strokeWidth="2.5"
-/>
+          <path d={buildPath(edoardoPoints)} fill="none" stroke="#2563eb" strokeWidth="2.5" />
         )}
 
         {andreaPoints.length > 0 && (
-          <path
-  d={buildPath(andreaPoints)}
-  fill="none"
-  stroke="#dc2626"
-  strokeWidth="2.5"
-/>
+          <path d={buildPath(andreaPoints)} fill="none" stroke="#dc2626" strokeWidth="2.5" />
         )}
 
         {edoardoPoints.map((p, i) => (
@@ -389,7 +399,14 @@ function TournamentRankingChart({
   return (
     <div className="overflow-x-auto">
       <svg width={width} height={height} className="min-w-[1100px]">
-        <line x1={zeroX} y1={padTop} x2={zeroX} y2={height - padBottom} stroke={isDay ? "#94a3b8" : "#52525b"} strokeDasharray="4 4" />
+        <line
+          x1={zeroX}
+          y1={padTop}
+          x2={zeroX}
+          y2={height - padBottom}
+          stroke={isDay ? "#94a3b8" : "#52525b"}
+          strokeDasharray="4 4"
+        />
 
         {data.map((row, idx) => {
           const y = padTop + idx * rowH + 6;
@@ -729,83 +746,83 @@ export default function PokerPage() {
   }, [accounts]);
 
   const sharkChartData = useMemo(() => {
-  const events: ProfitEvent[] = [];
+    const events: ProfitEvent[] = [];
 
-  for (const session of closedSessions) {
-    const sessionEntries = entriesBySessionId.get(session.id) ?? [];
+    for (const session of closedSessions) {
+      const sessionEntries = entriesBySessionId.get(session.id) ?? [];
 
-    for (const entry of sessionEntries) {
-      events.push({
-        player: session.player_name,
-        at: entry.created_at,
-        delta: -Number(entry.buy_in ?? 0),
-        label: `${entry.tournament_name_snapshot} · Buy-in`,
-        kind: "buyin",
-      });
+      for (const entry of sessionEntries) {
+        events.push({
+          player: session.player_name,
+          at: entry.created_at,
+          delta: -Number(entry.buy_in ?? 0),
+          label: `${entry.tournament_name_snapshot} · Buy-in`,
+          kind: "buyin",
+        });
 
-      const totalReturn = Number(entry.itm ?? 0) + Number(entry.bounty ?? 0);
+        const totalReturn = Number(entry.itm ?? 0) + Number(entry.bounty ?? 0);
 
-      events.push({
-        player: session.player_name,
-        at: session.closed_at ?? entry.created_at,
-        delta: totalReturn,
-        label: `${entry.tournament_name_snapshot} · Return`,
-        kind: "return",
-      });
+        events.push({
+          player: session.player_name,
+          at: session.closed_at ?? entry.created_at,
+          delta: totalReturn,
+          label: `${entry.tournament_name_snapshot} · Return`,
+          kind: "return",
+        });
+      }
     }
-  }
 
-  events.sort((a, b) => {
-    const ta = new Date(a.at).getTime();
-    const tb = new Date(b.at).getTime();
-    if (ta !== tb) return ta - tb;
+    events.sort((a, b) => {
+      const ta = new Date(a.at).getTime();
+      const tb = new Date(b.at).getTime();
+      if (ta !== tb) return ta - tb;
 
-    if (a.kind === b.kind) return 0;
-    return a.kind === "buyin" ? -1 : 1;
-  });
+      if (a.kind === b.kind) return 0;
+      return a.kind === "buyin" ? -1 : 1;
+    });
 
-  let globalIndex = 0;
-  let edoardoRunning = 0;
-  let andreaRunning = 0;
+    let globalIndex = 0;
+    let edoardoRunning = 0;
+    let andreaRunning = 0;
 
-  const edoardoPoints: CumulativePoint[] = [
-    { x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" },
-  ];
+    const edoardoPoints: CumulativePoint[] = [
+      { x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" },
+    ];
 
-  const andreaPoints: CumulativePoint[] = [
-    { x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" },
-  ];
+    const andreaPoints: CumulativePoint[] = [
+      { x: 0, y: 0, at: "", label: "Start", delta: 0, kind: "buyin" },
+    ];
 
-  for (const ev of events) {
-    globalIndex += 1;
+    for (const ev of events) {
+      globalIndex += 1;
 
-    if (ev.player === "Edoardo") {
-      edoardoRunning += ev.delta;
+      if (ev.player === "Edoardo") {
+        edoardoRunning += ev.delta;
 
-      edoardoPoints.push({
-        x: globalIndex,
-        y: edoardoRunning,
-        at: ev.at,
-        label: ev.label,
-        delta: ev.delta,
-        kind: ev.kind,
-      });
-    } else {
-      andreaRunning += ev.delta;
+        edoardoPoints.push({
+          x: globalIndex,
+          y: edoardoRunning,
+          at: ev.at,
+          label: ev.label,
+          delta: ev.delta,
+          kind: ev.kind,
+        });
+      } else {
+        andreaRunning += ev.delta;
 
-      andreaPoints.push({
-        x: globalIndex,
-        y: andreaRunning,
-        at: ev.at,
-        label: ev.label,
-        delta: ev.delta,
-        kind: ev.kind,
-      });
+        andreaPoints.push({
+          x: globalIndex,
+          y: andreaRunning,
+          at: ev.at,
+          label: ev.label,
+          delta: ev.delta,
+          kind: ev.kind,
+        });
+      }
     }
-  }
 
-  return { edoardoPoints, andreaPoints };
-}, [closedSessions, entriesBySessionId]);
+    return { edoardoPoints, andreaPoints };
+  }, [closedSessions, entriesBySessionId]);
 
   const tournamentRanking = useMemo(() => {
     const map = new Map<string, TournamentRankingRow>();
@@ -827,6 +844,65 @@ export default function PokerPage() {
     }
 
     return Array.from(map.values()).sort((a, b) => b.totalProfit - a.totalProfit);
+  }, [closedSessions, entriesBySessionId]);
+
+  const statsByPlayer = useMemo(() => {
+    function computeStats(player?: "Edoardo" | "Andrea"): StatsSummary {
+      const relevantSessions = player
+        ? closedSessions.filter((s) => s.player_name === player)
+        : closedSessions;
+
+      const flatEntries = relevantSessions.flatMap((session) =>
+        (entriesBySessionId.get(session.id) ?? []).map((entry) => ({
+          ...entry,
+          singleProfit:
+            Number(entry.itm ?? 0) + Number(entry.bounty ?? 0) - Number(entry.buy_in ?? 0),
+          singleReturn: Number(entry.itm ?? 0) + Number(entry.bounty ?? 0),
+        }))
+      );
+
+      const tournamentsPlayed = flatEntries.length;
+      const totalBuyIn = flatEntries.reduce((sum, x) => sum + Number(x.buy_in ?? 0), 0);
+      const totalReturn = flatEntries.reduce((sum, x) => sum + x.singleReturn, 0);
+      const netProfit = totalReturn - totalBuyIn;
+      const abi = tournamentsPlayed > 0 ? totalBuyIn / tournamentsPlayed : 0;
+      const roi = totalBuyIn > 0 ? (netProfit / totalBuyIn) * 100 : 0;
+      const avgProfitPerTournament = tournamentsPlayed > 0 ? netProfit / tournamentsPlayed : 0;
+
+      const itmEntries = flatEntries.filter((x) => x.singleReturn > 0);
+      const itmCount = itmEntries.length;
+      const itmPct = tournamentsPlayed > 0 ? (itmCount / tournamentsPlayed) * 100 : 0;
+      const avgReturnWhenItm =
+        itmCount > 0 ? itmEntries.reduce((sum, x) => sum + x.singleReturn, 0) / itmCount : 0;
+
+      const bestEntry =
+        flatEntries.length > 0
+          ? flatEntries.reduce((best, cur) =>
+              cur.singleProfit > best.singleProfit ? cur : best
+            )
+          : null;
+
+      return {
+        tournamentsPlayed,
+        totalBuyIn,
+        totalReturn,
+        netProfit,
+        abi,
+        roi,
+        avgProfitPerTournament,
+        itmCount,
+        itmPct,
+        avgReturnWhenItm,
+        bestTournamentName: bestEntry?.tournament_name_snapshot ?? null,
+        bestTournamentProfit: bestEntry?.singleProfit ?? null,
+      };
+    }
+
+    return {
+      total: computeStats(),
+      Edoardo: computeStats("Edoardo"),
+      Andrea: computeStats("Andrea"),
+    };
   }, [closedSessions, entriesBySessionId]);
 
   async function createTournament() {
@@ -1180,20 +1256,84 @@ export default function PokerPage() {
     );
   }
 
+  function renderStatsBlock(title: string, stats: StatsSummary) {
+    return (
+      <div className={innerCls + " p-4"}>
+        <div className="mb-3 text-sm font-semibold">{title}</div>
+
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <span className="font-semibold">Tornei:</span> {stats.tournamentsPlayed}
+          </div>
+          <div>
+            <span className="font-semibold">Buy-in totale:</span> {euro(stats.totalBuyIn)}
+          </div>
+          <div>
+            <span className="font-semibold">ABI:</span> {euro(stats.abi)}
+          </div>
+          <div>
+            <span className="font-semibold">ROI:</span>{" "}
+            <span className={amountClass(stats.roi, isDay)}>{pct(stats.roi)}</span>
+          </div>
+          <div>
+            <span className="font-semibold">Profitto netto:</span>{" "}
+            <span className={amountClass(stats.netProfit, isDay)}>{euro(stats.netProfit)}</span>
+          </div>
+          <div>
+            <span className="font-semibold">Profitto medio:</span>{" "}
+            <span className={amountClass(stats.avgProfitPerTournament, isDay)}>
+              {euro(stats.avgProfitPerTournament)}
+            </span>
+          </div>
+          <div>
+            <span className="font-semibold">ITM %:</span> {pct(stats.itmPct)}
+          </div>
+          <div>
+            <span className="font-semibold">Incasso medio ITM:</span> {euro(stats.avgReturnWhenItm)}
+          </div>
+          <div className="col-span-2">
+            <span className="font-semibold">Best torneo:</span>{" "}
+            {stats.bestTournamentName ? (
+              <>
+                {stats.bestTournamentName} —{" "}
+                <span className={amountClass(stats.bestTournamentProfit ?? 0, isDay)}>
+                  {euro(stats.bestTournamentProfit ?? 0)}
+                </span>
+              </>
+            ) : (
+              "—"
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className={pageCls}>
       <div className="p-6">
         {errorMsg && (
           <div className={`${innerCls} mb-4 p-3 text-sm`}>
-            <span className={isDay ? "font-semibold text-red-700" : "font-semibold text-red-300"}>Errore:</span> {errorMsg}
+            <span className={isDay ? "font-semibold text-red-700" : "font-semibold text-red-300"}>
+              Errore:
+            </span>{" "}
+            {errorMsg}
           </div>
         )}
 
         <div className="mb-6 flex items-center gap-2">
-          <button type="button" onClick={() => setActiveView("sessione")} className={activeView === "sessione" ? activeTabCls : inactiveTabCls}>
+          <button
+            type="button"
+            onClick={() => setActiveView("sessione")}
+            className={activeView === "sessione" ? activeTabCls : inactiveTabCls}
+          >
             Sessione
           </button>
-          <button type="button" onClick={() => setActiveView("riepilogo")} className={activeView === "riepilogo" ? activeTabCls : inactiveTabCls}>
+          <button
+            type="button"
+            onClick={() => setActiveView("riepilogo")}
+            className={activeView === "riepilogo" ? activeTabCls : inactiveTabCls}
+          >
             Riepilogo
           </button>
         </div>
@@ -1208,7 +1348,9 @@ export default function PokerPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h2 className="text-xl font-semibold tracking-wide text-white">Sessione Corrente</h2>
-                      <div className="mt-1 text-sm text-red-100">Le sessioni aperte di Edoardo e Andrea vengono mostrate affiancate.</div>
+                      <div className="mt-1 text-sm text-red-100">
+                        Le sessioni aperte di Edoardo e Andrea vengono mostrate affiancate.
+                      </div>
                     </div>
                     <div className={headerCounterCls}>
                       Aperte: {(openSessionsByPlayer.get("Edoardo") ? 1 : 0) + (openSessionsByPlayer.get("Andrea") ? 1 : 0)}
@@ -1241,7 +1383,9 @@ export default function PokerPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-semibold tracking-wide text-white">Nuova Sessione</h2>
-                    <div className="mt-1 text-sm text-red-100">Aggiungi nuovi tornei alla sessione aperta del giocatore.</div>
+                    <div className="mt-1 text-sm text-red-100">
+                      Aggiungi nuovi tornei alla sessione aperta del giocatore.
+                    </div>
                   </div>
                   <div className={headerCounterCls}>{tournaments.length} tornei</div>
                 </div>
@@ -1274,7 +1418,12 @@ export default function PokerPage() {
 
                     <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
                       Buy-in
-                      <input value={sessionBuyIn} readOnly className={inputCls} placeholder="Si compila automaticamente" />
+                      <input
+                        value={sessionBuyIn}
+                        readOnly
+                        className={inputCls}
+                        placeholder="Si compila automaticamente"
+                      />
                     </label>
 
                     <div className="mt-4">
@@ -1289,12 +1438,22 @@ export default function PokerPage() {
 
                     <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
                       Nome torneo
-                      <input value={newTournamentName} onChange={(e) => setNewTournamentName(e.target.value)} className={inputCls} placeholder="Es. Sunday Special" />
+                      <input
+                        value={newTournamentName}
+                        onChange={(e) => setNewTournamentName(e.target.value)}
+                        className={inputCls}
+                        placeholder="Es. Sunday Special"
+                      />
                     </label>
 
                     <label className={isDay ? "mt-4 block text-sm text-slate-700" : "mt-4 block text-sm text-zinc-300"}>
                       Buy-in torneo
-                      <input value={newTournamentBuyIn} onChange={(e) => setNewTournamentBuyIn(e.target.value)} className={inputCls} placeholder="Es. 100" />
+                      <input
+                        value={newTournamentBuyIn}
+                        onChange={(e) => setNewTournamentBuyIn(e.target.value)}
+                        className={inputCls}
+                        placeholder="Es. 100"
+                      />
                     </label>
 
                     <div className="mt-4">
@@ -1315,40 +1474,64 @@ export default function PokerPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            <section className="overflow-hidden rounded-2xl border border-red-200">
-              <div className={sectionHeaderCls}>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-xl font-semibold tracking-wide text-white">Profitti complessivi</h2>
-                    <div className="mt-1 text-sm text-red-100">Totale Edoardo, totale Andrea e totale combinato.</div>
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <section className="overflow-hidden rounded-2xl border border-red-200">
+                <div className={sectionHeaderCls}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl font-semibold tracking-wide text-white">Profitti complessivi</h2>
+                      <div className="mt-1 text-sm text-red-100">
+                        Totale Edoardo, totale Andrea e totale combinato.
+                      </div>
+                    </div>
+                    <div className={headerCounterCls}>{closedSessions.length} sessioni</div>
                   </div>
-                  <div className={headerCounterCls}>{closedSessions.length} sessioni</div>
                 </div>
-              </div>
 
-              <div className={panelCls + " p-6"}>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <div className={innerCls + " p-4"}>
-                    <div className="text-sm font-semibold">Profitto Edoardo</div>
-                    <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.edoardo, isDay)}`}>
-                      {euro(overallProfits.edoardo)}
+                <div className={panelCls + " p-6"}>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className={innerCls + " p-4"}>
+                      <div className="text-sm font-semibold">Profitto Edoardo</div>
+                      <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.edoardo, isDay)}`}>
+                        {euro(overallProfits.edoardo)}
+                      </div>
                     </div>
-                  </div>
-                  <div className={innerCls + " p-4"}>
-                    <div className="text-sm font-semibold">Profitto Andrea</div>
-                    <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.andrea, isDay)}`}>
-                      {euro(overallProfits.andrea)}
+                    <div className={innerCls + " p-4"}>
+                      <div className="text-sm font-semibold">Profitto Andrea</div>
+                      <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.andrea, isDay)}`}>
+                        {euro(overallProfits.andrea)}
+                      </div>
                     </div>
-                  </div>
-                  <div className={innerCls + " p-4"}>
-                    <div className="text-sm font-semibold">Profitto Totale</div>
-                    <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.total, isDay)}`}>
-                      {euro(overallProfits.total)}
+                    <div className={innerCls + " p-4"}>
+                      <div className="text-sm font-semibold">Profitto Totale</div>
+                      <div className={`mt-2 text-lg font-semibold ${amountClass(overallProfits.total, isDay)}`}>
+                        {euro(overallProfits.total)}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
+
+              <section className="overflow-hidden rounded-2xl border border-red-200">
+                <div className={sectionHeaderCls}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-xl font-semibold tracking-wide text-white">Statistiche</h2>
+                      <div className="mt-1 text-sm text-red-100">
+                        ABI, ROI e indicatori principali su totale, Edoardo e Andrea.
+                      </div>
+                    </div>
+                    <div className={headerCounterCls}>Live</div>
+                  </div>
+                </div>
+
+                <div className={panelCls + " p-6 space-y-4"}>
+                  {renderStatsBlock("Totale", statsByPlayer.total)}
+                  {renderStatsBlock("Edoardo", statsByPlayer.Edoardo)}
+                  {renderStatsBlock("Andrea", statsByPlayer.Andrea)}
+                </div>
+              </section>
+            </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {renderClosedPlayerSection("Edoardo")}
@@ -1360,7 +1543,9 @@ export default function PokerPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-semibold tracking-wide text-white">Grafici</h2>
-                    <div className="mt-1 text-sm text-red-100">Andamento cumulato stile SharkScope e ranking dei tornei più profittevoli.</div>
+                    <div className="mt-1 text-sm text-red-100">
+                      Andamento cumulato stile SharkScope e ranking dei tornei più profittevoli.
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -1400,10 +1585,7 @@ export default function PokerPage() {
                     isDay={isDay}
                   />
                 ) : (
-                  <TournamentRankingChart
-                    data={tournamentRanking}
-                    isDay={isDay}
-                  />
+                  <TournamentRankingChart data={tournamentRanking} isDay={isDay} />
                 )}
               </div>
             </section>
