@@ -310,38 +310,46 @@ function SharkScopeStyleChart({
           <path d={buildPath(andreaPoints)} fill="none" stroke="#dc2626" strokeWidth="2.5" />
         )}
 
-                {edoardoPoints.map((p, i) => (
-          <circle
-            key={`e-${i}`}
-            cx={xScale(p.x)}
-            cy={yScale(p.y)}
-            r={p.kind === "return" ? 4 : 2.8}
-            fill="#2563eb"
-          >
-            <title>{`Edoardo
-Torneo: ${p.label || "—"}
-Data: ${p.at ? formatDateTimeIT(p.at) : "—"}
-Movimento: ${p.kind === "buyin" ? "Buy-in" : "Incasso"}
-Importo: ${euro(p.delta)}
-Totale cumulato: ${euro(p.y)}`}</title>
-          </circle>
+                        {edoardoPoints.map((p, i) => (
+          <g key={`e-${i}`}>
+            <circle
+              cx={xScale(p.x)}
+              cy={yScale(p.y)}
+              r={8}
+              fill="transparent"
+            >
+              <title>{`Edoardo · Torneo: ${p.label || "—"} · Data: ${p.at ? formatDateTimeIT(p.at) : "—"} · Movimento: ${p.kind === "buyin" ? "Buy-in" : "Incasso"} · Importo: ${euro(p.delta)} · Totale cumulato: ${euro(p.y)}`}</title>
+            </circle>
+
+            <circle
+              cx={xScale(p.x)}
+              cy={yScale(p.y)}
+              r={p.kind === "return" ? 4 : 2.8}
+              fill="#2563eb"
+              pointerEvents="none"
+            />
+          </g>
         ))}
 
-                {andreaPoints.map((p, i) => (
-          <circle
-            key={`a-${i}`}
-            cx={xScale(p.x)}
-            cy={yScale(p.y)}
-            r={p.kind === "return" ? 4 : 2.8}
-            fill="#dc2626"
-          >
-            <title>{`Andrea
-Torneo: ${p.label || "—"}
-Data: ${p.at ? formatDateTimeIT(p.at) : "—"}
-Movimento: ${p.kind === "buyin" ? "Buy-in" : "Incasso"}
-Importo: ${euro(p.delta)}
-Totale cumulato: ${euro(p.y)}`}</title>
-          </circle>
+                        {andreaPoints.map((p, i) => (
+          <g key={`a-${i}`}>
+            <circle
+              cx={xScale(p.x)}
+              cy={yScale(p.y)}
+              r={8}
+              fill="transparent"
+            >
+              <title>{`Andrea · Torneo: ${p.label || "—"} · Data: ${p.at ? formatDateTimeIT(p.at) : "—"} · Movimento: ${p.kind === "buyin" ? "Buy-in" : "Incasso"} · Importo: ${euro(p.delta)} · Totale cumulato: ${euro(p.y)}`}</title>
+            </circle>
+
+            <circle
+              cx={xScale(p.x)}
+              cy={yScale(p.y)}
+              r={p.kind === "return" ? 4 : 2.8}
+              fill="#dc2626"
+              pointerEvents="none"
+            />
+          </g>
         ))}
 
                 <text
