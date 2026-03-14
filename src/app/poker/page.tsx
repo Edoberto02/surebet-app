@@ -1533,10 +1533,10 @@ export default function PokerPage() {
               </section>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        <section className="space-y-6">
               {renderClosedPlayerSection("Edoardo")}
               {renderClosedPlayerSection("Andrea")}
-            </div>
+            </section>
 
             <section className="overflow-hidden rounded-2xl border border-red-200">
               <div className={sectionHeaderCls}>
